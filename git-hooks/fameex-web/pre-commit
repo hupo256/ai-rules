@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+repo_root=$(git rev-parse --show-toplevel)
+if [ -x "$repo_root/.husky/pre-commit" ]; then "$repo_root/.husky/pre-commit"; fi
+node '/Users/aven/github/docs_tdd/common/engine/agent-scripts/precommit-verify-code-rules.mjs'
