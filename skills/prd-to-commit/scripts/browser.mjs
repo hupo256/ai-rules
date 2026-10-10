@@ -42,9 +42,12 @@ function siteConf(name) {
 
 // 无头运行用 profile 副本，避免锁冲突，也允许并行
 function profileCopy(conf) {
-  if (!existsSync(conf.profile)) throw new Error(`站点 ${conf.name} 还没登录过：先运行 browser.mjs login --site ${conf.name}`)
   const copy = join(tmpdir(), `p2c-profile-${conf.port}-${process.pid}`)
   rmSync(copy, { recursive: true, force: true })
+  if (!existsSync(conf.profile)) {
+    if (conf.tokenFrom) return copy
+    throw new Error(`站点 ${conf.name} 还没登录过：先运行 browser.mjs login --site ${conf.name}`)
+  }
   cpSync(conf.profile, copy, { recursive: true, filter: (src) => !/Singleton(Lock|Socket|Cookie)/.test(src) })
   return copy
 }
@@ -72,6 +75,33 @@ async function isLoggedIn(page, conf) {
 
 const { chromium } = loadPlaywright()
 
+
+// 共享登录：从来源站点（tokenFrom.site）的登录快照取 admin_token 等，注入到当前站点
+function sharedAuthPayload(conf) {
+  if (!conf.tokenFrom) return null
+  const source = sites[conf.tokenFrom.site]
+  const stateFile = join(profileRoot, `${conf.tokenFrom.site}.state.json`)
+  if (!existsSync(stateFile)) throw new Error(`共享登录来源 ${conf.tokenFrom.site} 还没登录：运行 browser.mjs login --site ${conf.tokenFrom.site}`)
+  const state = JSON.parse(readFileSync(stateFile, 'utf8'))
+  const origin = state.origins.find((o) => o.origin === `http://localhost:${source.port}`)
+  const items = Object.fromEntries((origin?.localStorage ?? []).map((i) => [i.name, i.value]))
+  const token = state.cookies.find((c) => c.name === 'admin_token')?.value ?? (items.admin_token ? JSON.parse(items.admin_token) : '')
+  if (!token) throw new Error(`${conf.tokenFrom.site} 的登录快照里没有 admin_token：重新登录 ${conf.tokenFrom.site}`)
+  return { mode: conf.tokenFrom.inject, token, items }
+}
+
+async function injectSharedAuth(context, conf) {
+  const payload = sharedAuthPayload(conf)
+  if (!payload) return
+  await context.addInitScript(({ mode, token, items }) => {
+    if (mode === 'localStorage') {
+      for (const [key, value] of Object.entries(items)) if (!localStorage.getItem(key)) localStorage.setItem(key, value)
+    } else if (mode === 'window.name' && !window.name) {
+      window.name = token
+    }
+  }, payload)
+}
+
 async function restoreCookies(context, conf) {
   const stateFile = `${conf.profile}.state.json`
   if (!existsSync(stateFile)) return
@@ -93,6 +123,10 @@ function launchOptions() {
 if (cmd === 'login') {
   const name = opt('--site', 'web')
   const conf = { ...siteConf(name), name }
+  if (conf.tokenFrom && !args.includes('--force')) {
+    console.log(`${name} 共用 ${conf.tokenFrom.site} 的登录态，无需单独登录：请运行 browser.mjs login --site ${conf.tokenFrom.site}（加 --force 可强制单独登录）`)
+    process.exit(0)
+  }
   mkdirSync(conf.profile, { recursive: true })
   const context = await chromium.launchPersistentContext(conf.profile, { ...launchOptions(), headless: false, viewport: null })
   const page = context.pages()[0] ?? (await context.newPage())
@@ -117,6 +151,7 @@ if (cmd === 'check') {
   const copy = profileCopy(conf)
   const context = await chromium.launchPersistentContext(copy, { ...launchOptions(), headless: true })
   await restoreCookies(context, conf)
+  await injectSharedAuth(context, conf)
   const page = context.pages()[0] ?? (await context.newPage())
   const ok = await isLoggedIn(page, conf)
   console.log(ok ? `✅ ${name} 登录态有效（${page.url()}）` : `❌ ${name} 登录态失效：运行 browser.mjs login --site ${name} 重新登录`)
@@ -136,7 +171,10 @@ if (cmd === 'run') {
   mkdirSync(outDir, { recursive: true })
   const copy = spec.auth === false ? join(tmpdir(), `p2c-anon-${process.pid}`) : profileCopy(conf)
   const context = await chromium.launchPersistentContext(copy, { ...launchOptions(), headless: !args.includes('--headed'), viewport: spec.viewport ?? { width: 1440, height: 900 } })
-  if (spec.auth !== false) await restoreCookies(context, conf)
+  if (spec.auth !== false) {
+    await restoreCookies(context, conf)
+    await injectSharedAuth(context, conf)
+  }
   const page = context.pages()[0] ?? (await context.newPage())
   const report = { site: name, spec: specPath, steps: [], consoleErrors: [], pageErrors: [], failedRequests: [], realWrites: [], blockedWrites: [], mocked: [] }
 
@@ -165,7 +203,9 @@ if (cmd === 'run') {
       report.realWrites.push(`${method} ${req.url()}`)
       return route.fallback()
     }
-    if (WRITE.test(path) && spec.strictWrites !== false) {
+    // 路径最后一段像查询（info/list/query/detail/get/page/count/stat）的放行，避免把 deposit_and_withdraw_info 之类误判成写
+    const readLike = /(info|list|query|detail|get|page|count|stat|config|search)[^/]*$/i.test(path)
+    if (WRITE.test(path) && !readLike && spec.strictWrites !== false) {
       report.blockedWrites.push(`${method} ${req.url()}`)
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: '0', msg: 'blocked by browser.mjs (unmocked write)', data: null }) })
     }

@@ -5,7 +5,7 @@
 ## 1. 起 dev server（固定端口）
 
 ```bash
-node $S/dev.mjs start ~/github/<ID> --site web          # web 4710 | admin 4711 | futures-admin 4712 | legacy-admin 8109 | futures-legacy-admin 8110
+node $S/dev.mjs start ~/github/<ID> --site web          # web 4710 | admin 4711 | legacy-admin 8109 | futures-legacy-admin 8110
 node $S/dev.mjs status ~/github/<ID> --site web
 node $S/dev.mjs stop ~/github/<ID> --site web           # 交付后停掉
 ```
@@ -21,6 +21,8 @@ node $S/browser.mjs check --site web     # 无头检查；失效返回码 2
 ```
 
 - 每个站点有一个专用 Chrome profile（`~/.config/prd-to-commit/browser/<site>`），由**用户手动登录一次**，脚本之后以无头方式复用。
+- **只需登录两次**：`web`（C 端）和 `legacy-admin`（现货后台）。`admin`（Next 后台）会自动复制 legacy-admin 的 localStorage（`admin_token`、`ADMIN_USERINFO`）；`futures-legacy-admin`（合约后台）会在页面加载前设置 `window.name = admin_token`（等价于人工在 console 里设置），都不用单独登录。
+- `apps/futures-admin` 的 Next 工程已停用，不在支持范围内。
 - check 失效时，**告诉用户运行 `node $S/browser.mjs login --site <site>` 重新登录**（这一步需要人工过验证码或 GA）。这期间先做不依赖登录的验证。
 - 不要尝试自动登录或绕过验证码。
 - 登录态的保存方式：profile 持久保存 localStorage；会话 cookie 关窗即丢，所以 login 期间每 2 秒把 cookies 快照到 `<site>.state.json`（权限 600），运行时再注入。
