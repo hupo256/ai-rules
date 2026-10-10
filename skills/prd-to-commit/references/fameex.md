@@ -21,6 +21,8 @@
 ## 测试
 - 根 `vitest.workspace.ts` 把 `@` 指向 apps/web/src。check.mjs 会给 admin 等 app 的测试生成临时配置，自己手动跑时要注意这一点（PR-01930 v4）。
 
+- biome 格式化可能把存量 tsc 错误挪到「改动行」上，让 check.mjs 报失败。先确认是否存量（`git show <BASE>:<file>` 对照），是存量就做最小修复或在交付说明里注明（PR-02265 两次复现）。
+
 ## git
 - 不用 `git stash`，所有 worktree 共用 stash。
 - lint-staged 会对整份暂存文件跑 biome。改动文件里如果有存量 lint 问题，会把提交拦下，只修被拦的那几处，不要扩大改动。
