@@ -125,6 +125,7 @@ cd ~/github/<ID> && git add -- <本次改动的具体文件...> && git commit -m
 
 - 只 `git add` 具体文件，不用 `git add -A`。不 push。
 - 被 hook 拦下就修代码，不用 `--no-verify`。
+- 沙箱里 `.git` 只读、提交失败时（Codex CLI 常见）：`git bundle create /tmp/<ID>.bundle <base>..HEAD` 打包提交（可先在临时 `GIT_DIR` 里提交），并在交付说明里写明 SHA 和 bundle 路径，由用户 fetch 回来。
 
 ## 10. 交付说明（给用户，≤15 行）
 
