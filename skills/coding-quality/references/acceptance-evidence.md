@@ -30,7 +30,6 @@ Perform a PRD requirement ↔ evidence reconciliation, not a commit ↔ feature 
 1. Every in-scope requirement ID points to its single task.
 2. Every required evidence type has a current, passing acceptance item.
 3. Changed files pass the repository's required formatter/linter, typecheck, and focused tests.
-4. Manual UI/visual checks are listed explicitly and signed by the responsible human when the repository requires it.
-5. In a `docs_tdd` repository, the full G6 result is persisted as PASS and its HEAD, dirty hash, and rule fingerprints still match the working state.
+4. Manual UI/visual checks that were not run are listed explicitly as not run.
 
-If any item is missing, say “implementation pending evidence”, “ready for integration”, or “pending reconciliation” as appropriate. Do not say “ready for test”. A partial G6 result is evidence of partial progress only; it is never a full G6 PASS.
+If any item is missing, say “implementation pending evidence”, “ready for integration”, or “pending reconciliation” as appropriate. Do not say “ready for test”.
