@@ -90,7 +90,9 @@ node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID
 cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报改动行）；legacy JS/.vue 做语法检查；改动的测试文件跑 vitest
 ```
 
-手动跑格式化（`biome check --write` 等）时只传本次改动的具体文件，不要传目录，否则会格式化无关文件。输出里的 `not-covered`（例如 legacy `.vue` 模板）不能算通过，要在交付说明里如实写出。能起页面且改动涉及可见 UI 时，用浏览器核对关键页面。起不来就写明「未做浏览器核对」，不要假装通过。
+手动跑格式化（`biome check --write` 等）时只传本次改动的具体文件，不要传目录，否则会格式化无关文件。输出里的 `not-covered`（例如 legacy `.vue` 模板）不能算通过，要在交付说明里如实写出。
+
+**浏览器验证（改动涉及可见 UI 时必做）**：按 `references/browser.md` 用 `dev.mjs` 起固定端口的 dev server、`browser.mjs` 复用已保存的登录态跑验证 spec（接口没好就在 spec 里 mock，写操作默认拦截），逐张查看截图对照 PRD/Figma。登录态失效时请用户执行 `browser.mjs login --site <site>`，期间先做其他验证；确实跑不了的写 `not-covered: <原因>`，不要假装通过。
 
 ## 7. 独立冷读（必须用子 agent，不能自查）
 

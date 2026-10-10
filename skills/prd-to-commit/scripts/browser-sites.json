@@ -1,0 +1,66 @@
+{
+  "_comment": "FameEX 各站点的本地验证配置。端口固定：登录态（cookie/localStorage）按 origin 保存，换端口就丢。{port} 会被替换。后台统一连 test 环境（dvmkgi）；legacy 的代理目标经 legacy-vue.config.cjs 覆盖，不改仓库文件。",
+  "web": {
+    "app": "apps/web",
+    "port": 4710,
+    "start": "PORT={port} pnpm dev:test",
+    "basePath": "/zh-CN",
+    "loginPath": "/zh-CN/login",
+    "authCheckPath": "/zh-CN/assets",
+    "loggedOutPattern": "/login"
+  },
+  "admin": {
+    "app": "apps/admin",
+    "port": 4711,
+    "start": "cp config/environments/.env.test .env.development.local && NEXT_PUBLIC_LOCAL_DEV=true NEXT_PUBLIC_ORIGIN=http://localhost:{port} pnpm exec next dev --port {port}",
+    "basePath": "/zh-CN",
+    "loginPath": "/zh-CN/login",
+    "authCheckPath": "/zh-CN/coupon-records/trial-fee-claim-log",
+    "loggedOutPattern": "/login",
+    "authProbe": {
+      "url": "/operate-api/menus",
+      "fail": "\"code\":\"10021\"|登录状态已失效"
+    }
+  },
+  "futures-admin": {
+    "app": "apps/futures-admin",
+    "port": 4712,
+    "start": "cp config/environments/.env.test .env.development.local && NEXT_PUBLIC_LOCAL_DEV=true NEXT_PUBLIC_ORIGIN=http://localhost:{port} pnpm exec next dev --port {port}",
+    "basePath": "/zh-CN",
+    "loginPath": "/zh-CN/login",
+    "authCheckPath": "/zh-CN",
+    "loggedOutPattern": "/login",
+    "authProbe": {
+      "url": "/operate-api/menus",
+      "fail": "\"code\":\"10021\"|登录状态已失效"
+    }
+  },
+  "legacy-admin": {
+    "app": "apps/admin/legacy-admin",
+    "port": 8109,
+    "install": "npm install --no-audit --no-fund",
+    "start": "VUE_CLI_SERVICE_CONFIG_PATH=$HOME/.ai-rules/skills/prd-to-commit/scripts/legacy-vue.config.cjs P2C_ORIGINAL_VUE_CONFIG=$PWD/vue.config.js P2C_PROXY_FROM=pfyys.com P2C_PROXY_TO=dvmkgi.vip npx vue-cli-service serve --mode test --port {port}",
+    "basePath": "/",
+    "loginPath": "/#/login",
+    "authCheckPath": "/#/",
+    "loggedOutPattern": "#/login",
+    "authProbe": {
+      "url": "/operate-api/",
+      "fail": "\"code\":\"10021\"|登录状态已失效|未登录"
+    }
+  },
+  "futures-legacy-admin": {
+    "app": "apps/futures-admin/legacy-admin",
+    "port": 8110,
+    "install": "npm install --no-audit --no-fund",
+    "start": "VUE_CLI_SERVICE_CONFIG_PATH=$HOME/.ai-rules/skills/prd-to-commit/scripts/legacy-vue.config.cjs P2C_ORIGINAL_VUE_CONFIG=$PWD/vue.config.js P2C_PROXY_FROM=pfyys.com P2C_PROXY_TO=dvmkgi.vip npx vue-cli-service serve --mode test --port {port}",
+    "basePath": "/",
+    "loginPath": "/#/login",
+    "authCheckPath": "/#/",
+    "loggedOutPattern": "#/login",
+    "authProbe": {
+      "url": "/operate-api/",
+      "fail": "\"code\":\"10021\"|登录状态已失效|未登录"
+    }
+  }
+}

@@ -16,7 +16,7 @@
 - MSW 的 `mockServiceWorker.js` 要加进 proxy 的 `LOCALE_BYPASS_PATTERNS`，否则会被语言重定向拦掉，mock 不生效（PR-02463）。
 - 要在 `useServiceWorkerRegistration` 里放行 mockServiceWorker，不然会被当成 PWA 的 SW 注销掉。
 - 开关只认 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'`，新环境变量要登记到 turbo.json 的 globalEnv。
-- 登录态页面的验证方法：写一个假 accessToken，再用 playwright 的 `context.route` 拦截非目标接口、返回空的成功响应，目标接口走 MSW（PR-02463）。如果直接用假 token 请求真实接口，会因 10002 被踢下线。
+- 浏览器验证（登录态、mock、写保护、截图）统一走 `references/browser.md` 的 `dev.mjs` + `browser.mjs`，不再手写假 token。
 
 ## 测试
 - 根 `vitest.workspace.ts` 把 `@` 指向 apps/web/src。check.mjs 会给 admin 等 app 的测试生成临时配置，自己手动跑时要注意这一点（PR-01930 v4）。
