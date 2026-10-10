@@ -5,7 +5,7 @@
 // - 改动/新增的测试文件：vitest 只跑这些文件
 // usage: check.mjs [--base origin/online]   （在 worktree 根目录运行；--base 可为分支或 commit）
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 const args = process.argv.slice(2)
 const base = args.includes('--base') ? args[args.indexOf('--base') + 1] : 'origin/online'
@@ -85,13 +85,36 @@ if (legacy.length) {
   console.log(`[legacy] not-covered: biome/tsc 不覆盖 legacy；${vueFiles.length} 个 .vue 模板未编译校验，需人工或浏览器核对`)
 }
 
+// 根 vitest workspace 把 `@` 指向 apps/web/src；其他 app 的测试用临时配置把 `@` 改指本 app，否则带 `@` 导入的测试必然失败
+function runVitest(files, app) {
+  let configArgs = []
+  if (app && app !== 'apps/web') {
+    mkdirSync('node_modules/.cache', { recursive: true })
+    const config = `node_modules/.cache/p2c-vitest.${app.replaceAll('/', '_')}.mts`
+    const root = process.cwd()
+    writeFileSync(config, `import { defineConfig } from 'vitest/config'\nexport default defineConfig({ root: ${JSON.stringify(root)}, resolve: { alias: { '@': ${JSON.stringify(`${root}/${app}/src`)} } }, test: { include: ${JSON.stringify(files)} } })\n`)
+    configArgs = ['--config', config]
+  }
+  return spawnSync('npx', ['vitest', 'run', ...configArgs, ...files], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+}
+
 if (tests.length) {
-  const vitest = spawnSync('npx', ['vitest', 'run', ...tests], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-  const tail = (vitest.stdout + vitest.stderr).split('\n').filter((line) => /Test Files|Tests |FAIL|✗|×/.test(line)).slice(0, 20).join('\n')
-  if (vitest.status !== 0) {
-    failed = true
-    console.log(`\n[vitest] FAIL\n${tail}`)
-  } else console.log(`[vitest] pass\n${tail}`)
+  const byApp = new Map()
+  for (const file of tests) {
+    const app = file.match(/^(apps\/[^/]+)\//)?.[1] ?? null
+    // legacy 工程没有 `@` 别名约定，沿用根配置
+    const key = isLegacy(file) ? null : app
+    byApp.set(key, [...(byApp.get(key) ?? []), file])
+  }
+  for (const [app, files] of byApp) {
+    const vitest = runVitest(files, app)
+    const tail = (vitest.stdout + vitest.stderr).split('\n').filter((line) => /Test Files|Tests |FAIL|✗|×/.test(line)).slice(0, 20).join('\n')
+    const label = `[vitest${app ? ` ${app}` : ''}]`
+    if (vitest.status !== 0) {
+      failed = true
+      console.log(`\n${label} FAIL\n${tail}`)
+    } else console.log(`${label} pass\n${tail}`)
+  }
 }
 
 process.exit(failed ? 1 : 0)

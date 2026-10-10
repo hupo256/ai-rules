@@ -39,17 +39,17 @@ When a displayed value is wrong, first locate the **first place the wrong value 
 
 Concrete anti-patterns (all observed in real defects, all forbidden):
 
-- **Reverse-engineering an authoritative field by arithmetic on siblings.** The backend returns `availableTrialFee`, `affectedTotalAmount`, `frozenAmount`, `positionOccupiedAmount` as authoritative fields. Do NOT do:
+- **Reverse-engineering an authoritative field by arithmetic on siblings.** The backend returns `availableAmount`, `totalAmount`, `frozenAmount`, `lockedAmount` as authoritative fields. Do NOT do:
 
   ```ts
   // ❌ guessing the "inactive" slice by subtraction, then overriding the backend value
-  const inactive = bn(affectedTotalAmount).minus(availableTrialFee).minus(frozenAmount)
-  const displayAvailable = inactive.gt(0) ? bn(availableTrialFee).plus(inactive).toFixed() : availableTrialFee
+  const inactive = bn(totalAmount).minus(availableAmount).minus(frozenAmount)
+  const displayAvailable = inactive.gt(0) ? bn(availableAmount).plus(inactive).toFixed() : availableAmount
   // ❌ re-deriving the total the frontend "thinks" is right
-  const displayTotal = bn(affectedTotalAmount).minus(positionOccupiedAmount).toFixed()
+  const displayTotal = bn(totalAmount).minus(lockedAmount).toFixed()
   ```
 
-  The composition formula is a **guess**; the moment the backend's composition differs, the frontend silently shows a wrong number — and on an **irreversible / money / risk** confirmation dialog the displayed value now disagrees with what the backend actually executes. Render the backend field directly (`amount(preview.availableTrialFee)`); push the口径 question to the backend.
+  The composition formula is a **guess**; the moment the backend's composition differs, the frontend silently shows a wrong number — and on an **irreversible / money / risk** confirmation dialog the displayed value now disagrees with what the backend actually executes. Render the backend field directly (`amount(preview.availableAmount)`); push the口径 question to the backend.
 
 - **Inferring an enum/state from a display-text field.** `couponStatusText === '已过期'` to decide "expired" couples logic to a localized display string; it breaks on copy/locale change and masks a backend that isn't returning a clean `status`. Decide from the real `status` enum; if `status` is missing/wrong after an operation, that is a backend bug.
 

@@ -4,6 +4,7 @@
 
 ## 工程归属
 - 后台页面有两套：Next（`apps/admin/src`、`apps/futures-admin/src`）和 Vue2 legacy（`apps/*/legacy-admin`）。新页面跟随同一菜单分组的兄弟页面放（PR-02208）。改既有页面时，两套都要搜（PR-01930 C13/C15）。
+- 后台菜单由后端 `/operate-api/menus` 下发，`siderItems` 只是兜底。新页面上线前要让后端登记菜单和权限点，前端不要注入菜单（PR-02208、PR-01930）。
 - legacy-admin 不在 biome 和 tsc 的覆盖范围内。check.mjs 只能做语法检查，模板要靠浏览器或人工核对。
 
 ## i18n
@@ -16,6 +17,9 @@
 - 要在 `useServiceWorkerRegistration` 里放行 mockServiceWorker，不然会被当成 PWA 的 SW 注销掉。
 - 开关只认 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'`，新环境变量要登记到 turbo.json 的 globalEnv。
 - 登录态页面的验证方法：写一个假 accessToken，再用 playwright 的 `context.route` 拦截非目标接口、返回空的成功响应，目标接口走 MSW（PR-02463）。如果直接用假 token 请求真实接口，会因 10002 被踢下线。
+
+## 测试
+- 根 `vitest.workspace.ts` 把 `@` 指向 apps/web/src。check.mjs 会给 admin 等 app 的测试生成临时配置，自己手动跑时要注意这一点（PR-01930 v4）。
 
 ## git
 - 不用 `git stash`，所有 worktree 共用 stash。
