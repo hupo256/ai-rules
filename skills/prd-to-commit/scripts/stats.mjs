@@ -70,17 +70,46 @@ for (const file of walk(join(homedir(), '.claude', 'projects'), (path) => path.e
   rows.push({ tool: 'claude', session: file.split('/').pop().slice(0, 8), subagents: subFiles.length, mainTokens: main.tokens, ...all })
 }
 
-// Codex：取最后一次 token_count 的累计值
-for (const file of walk(join(homedir(), '.codex', 'sessions'), (path) => path.endsWith('.jsonl'))) {
+// Codex：取每个会话最后一次 token_count 的累计值；子代理会话（session_meta.source.subagent）并入父会话
+const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// 路径提及要求项目号后不再跟字母数字或连字符，避免 REPLAY-01930 误配 REPLAY-01930-v4
+const pathMention = new RegExp(`(?:\\.prd-cache|/github)/${escaped}(?![\\w-])`)
+const codex = walk(join(homedir(), '.codex', 'sessions'), (path) => path.endsWith('.jsonl')).map((file) => {
+  const raw = readFileSync(file, 'utf8')
   const events = lines(file)
+  const meta = events.find((event) => event.type === 'session_meta')?.payload ?? {}
   const users = events.filter((event) => event.payload?.type === 'message' && event.payload?.role === 'user')
     .map((event) => textOf(event.payload.content)).filter((text) => !text.startsWith('# AGENTS.md') && !text.startsWith('<environment_context'))
-  const cwd = events.find((event) => event.payload?.cwd)?.payload.cwd ?? ''
-  if (!users.slice(0, 5).some((text) => text.includes(id)) && !cwd.includes(id)) continue
   const usage = events.filter((event) => event.payload?.type === 'token_count' && event.payload.info).at(-1)?.payload.info.total_token_usage
   const times = events.map((event) => event.timestamp).filter(Boolean).sort()
-  const calls = events.filter((event) => event.payload?.type === 'token_count').length
-  rows.push({ tool: 'codex', session: file.split('/').pop().slice(-44, -36), subagents: 0, mainTokens: usage?.total_tokens ?? 0, calls, tokens: usage?.total_tokens ?? 0, start: times[0], end: times.at(-1) })
+  return {
+    file, threadId: meta.id, parent: meta.source?.subagent?.thread_spawn?.parent_thread_id ?? null,
+    matched: users.slice(0, 5).some((text) => text.includes(id)) || (meta.cwd ?? '').includes(id) || pathMention.test(raw),
+    calls: events.filter((event) => event.payload?.type === 'token_count').length,
+    tokens: usage?.total_tokens ?? 0, start: times[0], end: times.at(-1),
+  }
+})
+const byThread = new Map(codex.map((session) => [session.threadId, session]))
+const rootOf = (session) => {
+  let current = session
+  while (current.parent && byThread.has(current.parent)) current = byThread.get(current.parent)
+  return current
+}
+const groups = new Map()
+for (const session of codex) {
+  const root = rootOf(session)
+  if (!root.matched && !session.matched) continue
+  const key = (root.matched ? root : session).threadId
+  groups.set(key, [...(groups.get(key) ?? []), session])
+}
+for (const [key, sessions] of groups) {
+  const root = byThread.get(key)
+  const times = sessions.flatMap((session) => [session.start, session.end]).filter(Boolean).sort()
+  rows.push({
+    tool: 'codex', session: root.threadId.slice(0, 8), subagents: sessions.length - 1,
+    mainTokens: root.tokens, calls: sessions.reduce((sum, session) => sum + session.calls, 0),
+    tokens: sessions.reduce((sum, session) => sum + session.tokens, 0), start: times[0], end: times.at(-1),
+  })
 }
 
 const minutes = (row) => (row.start && row.end ? Math.round((Date.parse(row.end) - Date.parse(row.start)) / 60000) : 0)
