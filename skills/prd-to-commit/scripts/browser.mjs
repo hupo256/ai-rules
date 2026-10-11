@@ -186,7 +186,10 @@ if (cmd === 'run') {
       return route.fulfill({ status: m.status ?? 200, contentType: 'application/json', body: JSON.stringify(m.json ?? { code: '0', msg: '', data: null }) })
     })
   }
-  // 2) 写保护：未 mock 的写操作类请求默认拦截（避免改动 dev 环境数据）；spec.allowWrites = [/regex/] 可放行
+  // 2) 写保护：dev 环境（pfyys）上默认允许真实写入——dev 本来就是联调用的、数据好操作；
+  //    发往其他域名（test/pre/生产）的写操作一律拦截，防止环境配错时写到不该写的地方。
+  //    spec.strictWrites = true 可在 dev 上也拦截未 mock 的写；spec.allowWrites = [/regex/] 可对非 dev 域名逐条放行。
+  const DEV_WRITE_HOST = /(^|\.)pfyys\.com$/i
   const WRITE = /(create|add|insert|update|edit|modify|delete|remove|submit|save|apply|bind|unbind|invalid|cancel|transfer|withdraw|deposit|place|order\/new)/i
   // 登出类接口无论如何都拦（放行会让服务端会话失效，保存的登录态就废了）
   const LOGOUT = /(log_?out|login_?out|sign_?out)/i
@@ -205,7 +208,8 @@ if (cmd === 'run') {
     }
     // 路径最后一段像查询（info/list/query/detail/get/page/count/stat）的放行，避免把 deposit_and_withdraw_info 之类误判成写
     const readLike = /(info|list|query|detail|get|page|count|stat|config|search)[^/]*$/i.test(path)
-    if (WRITE.test(path) && !readLike && spec.strictWrites !== false) {
+    const devHost = DEV_WRITE_HOST.test(new URL(req.url()).hostname)
+    if (WRITE.test(path) && !readLike && (!devHost || spec.strictWrites === true)) {
       report.blockedWrites.push(`${method} ${req.url()}`)
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: '0', msg: 'blocked by browser.mjs (unmocked write)', data: null }) })
     }

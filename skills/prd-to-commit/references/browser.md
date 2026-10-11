@@ -42,7 +42,7 @@ export const mocks = [                    // 接口没就绪、或要构造特�
   { url: /\/fe-ex-api\/finance\/launchpool\/projects/, json: { code: '0', msg: '', data: { list: [/* 按清单契约构造 */] } } },
   { url: /\/manualInvalid\/submit/, method: 'POST', json: { code: '0', msg: '操作成功', data: null } },
 ]
-// export const allowWrites = [/\/some\/safe-write/]     // 确需真实写入 dev 环境时才放行（默认拦截）
+// export const strictWrites = true        // dev 上也拦截未 mock 的写操作（默认放行）
 
 export default async ({ goto, step, expectText, page, shot }) => {
   await step('列表页展示', async () => {
@@ -63,7 +63,7 @@ node $S/browser.mjs run ~/.prd-cache/<ID>/browser-specs/<名字>.mjs --id <ID> [
 
 - 输出在 `~/.prd-cache/<ID>/browser/<时间>/`，包含每步截图、`report.md`、`report.json`（页面报错、console error、失败请求、mock 命中、拦截的写请求）。
 - 运行器会自动去掉开发态叠层（react-scan、Next 开发角标）。
-- **写保护**：没有 mock 的写操作类请求（路径含 create/update/delete/submit/bind/withdraw…）会被拦截，返回成功占位，并记录在报告里。凡是要点「提交/确认」的步骤，都要先给对应接口写 mock。POST 查询照常透传。
+- **写操作**：dev 环境（pfyys）上默认**真实写入**，报告的 `realWrites` 会列出每一条，交付说明里要写明改了哪些 dev 数据。发往其他域名的写操作类请求（路径含 create/update/delete/submit/bind/withdraw…）一律拦截，返回成功占位并记入 `blockedWrites`。不想动 dev 数据，或接口还没上 dev 时，给该接口写 mock，或在 spec 里设 `strictWrites = true`。登出接口始终拦截。POST 查询照常透传。
 
 ## 4. 要验证什么（对着清单逐行写）
 
