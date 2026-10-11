@@ -14,7 +14,7 @@
 
 ## MSW（接口未就绪时写全 UI/UX）
 - 何时用、用多少见 SKILL §5：接口没上 dev 时自行决定，只 mock 本需求的新接口，fixture 最小化。
-- **基建常驻（apps/web）**：`src/mocks/` 下的 `browser.ts`、`useMockWorker.ts`、`handlers.ts`（登记表）和 `README.md`，加上 `Providers.tsx` 的 `useMockWorker`、proxy 与 SW 注册对 worker 的放行、`msw` 依赖与 `msw:init`、`turbo.json` 的 `NEXT_PUBLIC_ENABLE_MSW`。由 `feature/msw-infra`（d4e3f12b86）提供，**合入 online 前**，基于 online 的需求分支没有这套基建：先 `git cherry-pick d4e3f12b86` 作为单独一个提交带上，不要手抄。用法以仓库里的 `src/mocks/README.md` 为准。
+- **基建常驻（apps/web）**：`src/mocks/` 下的 `browser.ts`、`useMockWorker.ts`、`handlers.ts`（登记表）和 `README.md`，加上 `Providers.tsx` 的 `useMockWorker`、proxy 与 SW 注册对 worker 的放行、`msw` 依赖与 `msw:init`、`turbo.json` 的 `NEXT_PUBLIC_ENABLE_MSW`。现在 online 上还没有这套基建：已验证的实现放在本地分支 `feature/msw-infra`（d4e3f12b86，未 push）。**第一个需要 MSW 的真实需求**先 `git cherry-pick d4e3f12b86` 作为单独一个提交带上（不要手抄），基建随该需求合入 online，之后常驻。cherry-pick 前先查 `src/mocks/browser.ts` 是否已存在，已存在说明基建已经进来了，跳过这一步。用法以仓库里的 `src/mocks/README.md` 为准。
 - 每个需求只新增 `src/mocks/<功能>/{handlers,fixtures}.ts`，并在 `src/mocks/handlers.ts` 登记一行。接口就绪后**只删这两处**，基建一律保留（以前连基建一起清掉，下个需求又得重接）。
 - worktree 里先跑一次 `pnpm --filter @fameex/web msw:init` 生成 worker 文件（已 gitignore）。
 - 基建已处理的三个坑（PR-02463 踩过），改动这些文件时别破坏：worker 要在 proxy 的 `LOCALE_BYPASS_PATTERNS` 里放行，否则被语言重定向拦掉；`useServiceWorkerRegistration` 不能把 mockServiceWorker 当 PWA 的 SW 注销；开关只认 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'`，并已登记在 `turbo.json` 的 globalEnv。
