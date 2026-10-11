@@ -7,6 +7,17 @@
 - 后台菜单由后端 `/operate-api/menus` 下发。新页面要**照兄弟页面一样登记** `routes`、`siderItems`（兜底与登录后跳转都依赖它）、`contentSettings`、权限点；同时在交付说明里提醒后端登记菜单。禁止的是篡改/注入 menus 接口返回数据（PR-02208 历史实现的 `injectXxxMenu`）。
 - legacy-admin 不在 biome 和 tsc 的覆盖范围内。check.mjs 只能做语法检查，模板要靠浏览器或人工核对。在 legacy 里删除/改名方法或变量后，必须全仓 grep 残留引用（包括模板里的 `@click`/插值），没有 tsc 兜底（PR-02265 R3：validateForm 调用已删方法，保存直接报错）。
 
+## web-next（apps/web-next，Vite + TanStack Start + Effect）
+- 编码规范以 `apps/web-next/.agents/skills/coding-standards/SKILL.md` 为准（按其路由读 references），先读 `src/platform/domain/AGENTS.md`、`src/services/hooks/README.md`：一接口一 endpoint 文件，注册到 `<Scope>HttpApi.ts` 的 group；hooks 一接口一文件，失效用 `queryKey: [descriptor.key]`；列表响应用 `ResilientArray` 逐行容错。
+- 新增路由后插件才会生成 `src/routeTree.gen.ts`：用 `dev.mjs start --site web-next` 起一次再 stop，并把路由树一起提交（check.mjs 会核对，PR-01507）。
+- 没有路由级登录守卫（SSR 拿不到登录态）：需登录页用 `ssr: false` + 页内 `useCurrentUserInfo().isInitialDataResolved` 判定后跳 `useAuthNavigationUrl('/login')`。
+- 页面默认强制暗色，跟随用户主题要写 `staticData: { forceDarkTheme: false }`。
+- i18n 新命名空间登记 `src/i18n/core/namespaces.ts` + `src/i18n/i18next.d.ts`；只写 zh-CN 可行（其他语种由 tolgee 拉取，缺 key 时显示 `ns:key`）；`t(($) => $.a.b)` selector 写法。route loader 读文案用 `hasI18nResource` 判空，`loadI18nResource` 缺语种会 throw。
+- 没有 MSW：自测数据态写在浏览器 spec 的 mocks 里。
+- Header：带下拉的一级项顶层触发器固定走 legacyHref（`MainNavigation.tsx`），只有子项和无下拉项按 `kind` 走 SPA；改成 SPA 的链接，组件测试照 `main-header/test/MainNavigation.test.tsx` mock `@tanstack/react-router` 的 `Link`。
+- 资产页、现货/资金账户流水、帮助中心都还在 apps/web（legacy）：需求涉及这些宿主页而用户限定 web-next 时，标「不做（宿主在 apps/web）」并列待确认。
+- 已对接同一后端的接口，apps/web 的 `src/services/api/*`、`src/types/*` 可作为契约输入存 `inputs/`（只取契约，不看旧 UI，PR-01507）。
+
 ## i18n
 - Web 只改 zh-CN（`AGENTS.md:31`）。
 - 新增只有 zh-CN 的命名空间时，要登记到 `ZH_CN_SOURCE_ONLY_NAMESPACES`，否则其他语种加载会报错（PR-02463）。
