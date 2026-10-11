@@ -11,12 +11,18 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 
 ## 未发布
 
+（暂无）
+
+## v1.3 — 2026-10-11
+
+独立代码规则扫描器接入 `check.mjs`；MSW 常驻策略；浏览器核对改连 dev 并默认真实写入；Codex 只读 `.git` 时用 bundle 交回。
+
 - `cdae09b`（2026-10-11）：新增零依赖扫描器 `scripts/code-rules.mjs`，`check.mjs` 在 biome、tsc 之后调用它（[拆分决策](/Users/aven/github/docs_tdd/docs/decisions/2026-10-11-split-lark-bot.md)第 3 条，docs_tdd 已冻结）。
   - 规则从 docs_tdd 的 `verify-code-rules.mjs` 中挑出，只保留误报低的 error 级规则：ARCH-001、TYPE-002、E2E-001、MAPPER-001、FILE-001、STYLE-001、MOCK-004/005。
   - 丢弃：TYPE-001（Biome 已覆盖）；STYLE-002 写死颜色（近 3 个月命中 810 处，当 error 误报太高）；所有 warn-first 规则；依赖项目文档的规则。
   - 豁免只有一种写法：`code-rules-ignore <RULE-ID>: <理由>`。
   - lark-bot 用同一份脚本（复制一份钉住版本）。
-  - 验证：自测 46 例；在 PR-02463 和主仓 138 个文件上与旧脚本对比，新脚本报出的 error 都在旧脚本的 error 里。没有做基准回放，因为这只是确定性检查，不改变 AI 的行为。打 tag 前至少回放 1 个基准。
+  - 验证：自测 46 例；在 PR-02463 和主仓 138 个文件上与旧脚本对比，新脚本报出的 error 都在旧脚本的 error 里。发版前按纪律回放了 PR-02306，见本节「证据」。
 
 - `ef0bb18`（2026-10-11）：**MSW 基建常驻**（用户确认：以前接口好了连基建一起清掉，清得太干净）。fameex-web 的本地分支 `feature/msw-infra`（`d4e3f12b86`，未 push）提供 apps/web 的常驻基建：`src/mocks/` 下的 handlers 登记表、按开关加载的 worker、README，以及 proxy、SW 注册和 turbo.json 的配套改动。已在本地验证：开关打开时 MSW 启动并能拦截请求，不开时完全不加载。按用户决定，不单独提基建 PR：第一个需要 MSW 的真实需求 cherry-pick 这个提交，基建随该需求合入 online，之后常驻；每个需求只增删 `src/mocks/<功能>/` 和登记行。
 - （2026-10-11）mock 策略写进 SKILL.md §5（用户要求，未回放）：接口没上 dev 时，**AI 自行决定**加最小 MSW mock，把 UI/UX 写全、本地能点通，不用等用户提出。只 mock 本需求新增/变更的接口，放在 `src/mocks/<功能>/`，只在 `NEXT_PUBLIC_ENABLE_MSW=true` 的本地开发下生效，接口上 dev 后删除。app 还没接入 MSW 时，参照 `feature/PR-02463` 单独提交补齐（清单在 `references/fameex.md`）。只为验证构造的边缘数据态写在浏览器验证 spec 里。交付说明要列出 MSW handler。同日早先一版写成「MSW 要用户明确提出」，已更正。
@@ -24,6 +30,8 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 - （2026-10-11）浏览器核对在 dev 上默认**真实写入**（用户要求）：dev 本来就是联调环境，数据可以操作；报告的 `realWrites` 列出每条真实写入，交付说明要写明。发往 dev 以外域名的写操作仍一律拦截，防止环境配错；spec 设 `strictWrites = true` 可在 dev 上也拦截；登出接口始终拦截。
 - `a6fc678`（2026-10-11）：浏览器核对改连 dev 环境（pfyys），不再连 test。原因是开发期接口先发 dev、在 dev 联调完才上 test，dev 上也更好操作（用户要求）。Next 站点改用仓库 `.env.dev`，legacy 后台以 `--mode dev` 启动并沿用仓库自带的 pfyys 代理。只改站点配置和说明，未回放；web 与现货后台需要在 dev 上各重新登录一次。
 - `fcfd23e`（2026-10-11）：Codex 沙箱里 `.git` 只读、无法提交时，改为把提交打成 bundle 交回（Codex 中出现 3 次）。只改 SKILL.md 文字，未回放；下次打 tag 时并入。
+
+- **证据**：PR-02306 回放 R3（Claude）7/7、陷阱 0，与 v1.1 持平；15 分钟、6.6M token（v1.1 为 10 分钟、4.5M）。成本上升来自冷读返工和回放 worktree 的依赖版本不一致，与本版改动无关，见 [iteration-ledger.md](./iteration-ledger.md)。MSW、浏览器、bundle 三项属于工具和说明改动，放行依据见各条目自身的验证。
 
 ## v1.2 — 2026-10-11
 
