@@ -1,0 +1,32 @@
+{
+  "PR-02306": {
+    "base": "2738fb1f5d",
+    "prd": "~/.prd-cache/REPLAY-02306/r298",
+    "scope": "只做 apps/web（Web 端）。App 和后端不做。"
+  },
+  "PR-01930": {
+    "base": "2d9e77ca29",
+    "prd": "~/.prd-cache/REPLAY-01930/r4103",
+    "scope": "本仓前端（apps/admin 含 legacy-admin、apps/web；futures-admin 如有落点可判断是否纳入并说明）。App 原生端和后端不做。后端接口没有文档，按 PRD 和仓内同类接口约定写，无法确定的按 skill 规则处理。"
+  },
+  "PR-02022": {
+    "base": "09f2207a5f",
+    "prd": "~/.prd-cache/REPLAY-02022/r633",
+    "scope": "只做 apps/web（PC + H5）。App 端不做；i18n 只写 zh-CN；交易员可见性由后端处理。后端接口按 PRD 和仓内同类接口约定写，无法确定的按 skill 规则处理。"
+  },
+  "PR-02265": {
+    "base": "445876e97f",
+    "prd": "~/.prd-cache/REPLAY-02265/r1009",
+    "scope": "本仓前端：apps/web、apps/admin/legacy-admin（现货后台）、apps/futures-admin/legacy-admin（合约后台）。App/H5 原生端和后端返佣逻辑不做。后端字段/口径按 PRD 和仓内现有约定处理，无法确定的按 skill 规则处理。"
+  },
+  "PR-02273": {
+    "base": "89b133bd97",
+    "prd": "~/.prd-cache/REPLAY-02273/r2547",
+    "scope": "本仓前端：apps/web 与 apps/admin（Next 后台）。legacy-admin、App、后端不做；i18n 只写 zh-CN。后端字段/口径按 PRD 和仓内现有约定处理，无法确定的按 skill 规则处理。"
+  },
+  "PR-02172": {
+    "base": "03b1fef6c9",
+    "prd": "~/.prd-cache/REPLAY-02172/r1341",
+    "scope": "本仓前端：apps/web 与 apps/admin/legacy-admin（现货后台 Vue2）。App 不做；apps/web-next 不做。后端接口按 PRD 和仓内同类接口约定写，无法确定的按 skill 规则处理。"
+  }
+}

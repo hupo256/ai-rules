@@ -24,7 +24,7 @@ node ~/.ai-rules/skills/figma-read/scripts/figma-spec.mjs \
 - The node-id is parsed from the URL, or pass it explicitly as the 2nd arg.
 - `spec.md` = greppable geometry tree + tokens; `spec.json` = normalized + raw (`--raw`).
 - Canonical copy for the FameEX lark-bot worker is vendored at
-  `docs_tdd/common/lark-bot/scripts/figma-spec.mjs` (versioned); this `~/.ai-rules` copy is the
+  `~/github/lark-bot/scripts/figma-spec.mjs` (versioned); this `~/.ai-rules` copy is the
   portable one for interactive use across repos. Keep them in sync.
 - The MCP calls below (§2) are the **interactive fallback** when you need to poke at a single
   node live or the token path is unavailable — not the default for "read the design and implement".

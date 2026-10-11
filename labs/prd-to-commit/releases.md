@@ -1,0 +1,64 @@
+# prd-to-commit 版本记录
+
+skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版本即该仓库的 tag `prd-to-commit-vX.Y[.Z]`。本文件只记每个版本**改了什么、为什么、用什么证据放行**；逐轮回放数据见 [iteration-ledger.md](./iteration-ledger.md)，回放基准见 [replay/](./replay/README.md)。
+
+## 发版纪律
+
+- **加规则的门槛**：同类问题出现 2 次，并且能在回放中复现。
+- **放行条件**：改动后至少回放受影响的基准；得分不低于上一版，且陷阱零违反。没有改善就撤回。
+- **体量上限**：SKILL.md ≤150 行、≤18KB。超了先精简再加。
+- **记录**：每次打 tag，在本文件顶部追加一节，并在 [iteration-ledger.md](./iteration-ledger.md) 记录回放结果（不回放的要写明原因）；（2026-10-11 本台账迁入 `~/.ai-rules/labs/prd-to-commit/` 后，不再同步 docs_tdd 根 README 和 CHANGELOG，docs_tdd 已冻结。）未打 tag 的提交记在「未发布」一节。
+
+## 未发布
+
+- `cdae09b`（2026-10-11）：新增零依赖扫描器 `scripts/code-rules.mjs`，`check.mjs` 在 biome、tsc 之后调用它（[拆分决策](/Users/aven/github/docs_tdd/docs/decisions/2026-10-11-split-lark-bot.md)第 3 条，docs_tdd 已冻结）。
+  - 规则从 docs_tdd 的 `verify-code-rules.mjs` 中挑出，只保留误报低的 error 级规则：ARCH-001、TYPE-002、E2E-001、MAPPER-001、FILE-001、STYLE-001、MOCK-004/005。
+  - 丢弃：TYPE-001（Biome 已覆盖）；STYLE-002 写死颜色（近 3 个月命中 810 处，当 error 误报太高）；所有 warn-first 规则；依赖项目文档的规则。
+  - 豁免只有一种写法：`code-rules-ignore <RULE-ID>: <理由>`。
+  - lark-bot 用同一份脚本（复制一份钉住版本）。
+  - 验证：自测 46 例；在 PR-02463 和主仓 138 个文件上与旧脚本对比，新脚本报出的 error 都在旧脚本的 error 里。没有做基准回放，因为这只是确定性检查，不改变 AI 的行为。打 tag 前至少回放 1 个基准。
+
+- `ef0bb18`（2026-10-11）：**MSW 基建常驻**（用户确认：以前接口好了连基建一起清掉，清得太干净）。fameex-web 的本地分支 `feature/msw-infra`（`d4e3f12b86`，未 push）提供 apps/web 的常驻基建：`src/mocks/` 下的 handlers 登记表、按开关加载的 worker、README，以及 proxy、SW 注册和 turbo.json 的配套改动。已在本地验证：开关打开时 MSW 启动并能拦截请求，不开时完全不加载。按用户决定，不单独提基建 PR：第一个需要 MSW 的真实需求 cherry-pick 这个提交，基建随该需求合入 online，之后常驻；每个需求只增删 `src/mocks/<功能>/` 和登记行。
+- （2026-10-11）mock 策略写进 SKILL.md §5（用户要求，未回放）：接口没上 dev 时，**AI 自行决定**加最小 MSW mock，把 UI/UX 写全、本地能点通，不用等用户提出。只 mock 本需求新增/变更的接口，放在 `src/mocks/<功能>/`，只在 `NEXT_PUBLIC_ENABLE_MSW=true` 的本地开发下生效，接口上 dev 后删除。app 还没接入 MSW 时，参照 `feature/PR-02463` 单独提交补齐（清单在 `references/fameex.md`）。只为验证构造的边缘数据态写在浏览器验证 spec 里。交付说明要列出 MSW handler。同日早先一版写成「MSW 要用户明确提出」，已更正。
+- `c99da4c`（2026-10-11）：登录窗口改为**普通 Chrome**，登录期间只在浏览器级别读 cookie，不连接页面。原先由 Playwright 启动或经 Playwright 连进页面做快照，dev 登录页会不停闪动、无法操作；二分实验确认普通 Chrome 加浏览器级读取是稳定的。登录态按环境打标记，换环境时自动归档旧 profile。关窗后进程不退出的问题一并修复。四个站点已在 dev 上 check 通过。
+- （2026-10-11）浏览器核对在 dev 上默认**真实写入**（用户要求）：dev 本来就是联调环境，数据可以操作；报告的 `realWrites` 列出每条真实写入，交付说明要写明。发往 dev 以外域名的写操作仍一律拦截，防止环境配错；spec 设 `strictWrites = true` 可在 dev 上也拦截；登出接口始终拦截。
+- `a6fc678`（2026-10-11）：浏览器核对改连 dev 环境（pfyys），不再连 test。原因是开发期接口先发 dev、在 dev 联调完才上 test，dev 上也更好操作（用户要求）。Next 站点改用仓库 `.env.dev`，legacy 后台以 `--mode dev` 启动并沿用仓库自带的 pfyys 代理。只改站点配置和说明，未回放；web 与现货后台需要在 dev 上各重新登录一次。
+- `fcfd23e`（2026-10-11）：Codex 沙箱里 `.git` 只读、无法提交时，改为把提交打成 bundle 交回（Codex 中出现 3 次）。只改 SKILL.md 文字，未回放；下次打 tag 时并入。
+
+## v1.2 — 2026-10-11
+
+浏览器核对打通。
+
+- 新增 `scripts/browser.mjs`、`browser-sites.json`、`dev.mjs` 和 `references/browser.md`：web、admin、legacy-admin、futures-legacy-admin 四个站点用固定端口的 dev server 加专用浏览器 profile，跑真实页面，连 test 环境。
+- 后台共享登录态（localStorage / window.name），legacy 代理指向 test；只读接口放行，写操作默认拦截。
+- 删除已下线的 futures-admin Next 站点配置。
+- 证据：四个站点完成真实页面验证。改动集中在浏览器核对：新增脚本和参考文档，并在 SKILL.md 里补了核对步骤的说明（`ccae9bd`）。没有做基准回放，放行依据是四个站点的真实页面验证。后台各页面的验证脚本细节尚未补齐。
+
+## v1.1 — 2026-10-11（正式版）
+
+6 个回放基准全部达标，Claude 与 Codex 两侧均通过验收。详见 [最终报告](./reports/2026-10-11-final-report.md)。
+
+- **规则缺陷修正**：多值枚举每个值使用不同的占位；siderItems 照兄弟页面登记，只禁止篡改后端菜单数据；冷读默认在前台运行。
+- **按「出现 2 次」加入的规则**：验证已有值的入口不套用新校验；规则提示与提交校验保持一致；需要口径值时先找 schema 现成字段，禁止用兄弟字段做算术；写操作成功后刷新依赖它的服务端数据；冷读的顾虑不能撤回 PRD 明确要求的改动；PRD 内部矛盾以产品方案正文为准；区分「同因」和「范围外」。
+- **效率**：默认串行，只把完全独立的批次派给子 agent；第 2 轮冷读改为满足条件才跑；串行时不再单独跑批次 0 的 tsc。
+- **工具**：`fetch-prd` 展开内嵌表格；`check` 对 legacy 不再假通过；`worktree` 防止与远端分支撞名；新增 `stats.mjs`；新增回放工具链。
+- **撤回**：「示例值即格式标准」，因为在 PR-02265 上连续 3 轮没有改善。
+- 证据：Claude 平均得分 95.3%，陷阱 0；Codex 在 PR-02022 上得 12/12，在 PR-02306 上得 7/7。未达标项：PR-02172 的 token 为 33–36M，超出 30M 目标约 15%。
+
+## v1.0.1 — 2026-10-10
+
+- Codex 回放 PR-02306 时踩了 T1（找回或绑定入口给已有密码套了新的强校验），据此新增「验证已有值不套新规则」。
+- `stats.mjs` 修正 Codex 子代理的 token 归属。
+
+## v1.0 — 2026-10-10（切换为默认流程）
+
+- `~/.ai-rules` 改为 git 管理，打第一个 tag。
+- 修完正式化评估列出的 P0/P1 问题，见 [正式化评估](./reports/2026-10-10-readiness.md) §3：内嵌 sheet 展开、legacy 检查不再假通过、远端分支撞名检查、stats 统计口径、后台页面跟随兄弟工程、禁止 `git stash`、大需求主会话只做协调。
+- docs_tdd 入口和 Web Lite 改为指向本 skill，docs_tdd 冻结，决策见 [decisions/2026-10-10-switch-to-prd-to-commit.md](./decisions/2026-10-10-switch-to-prd-to-commit.md)。
+- 证据：回归回放 PR-01930 得 15/15，但用了 44 分钟、41.4M token，效率未达标，留到 v1.1 处理。
+
+## v0.x — 2026-10-09 ~ 10-10（预发布，未打 tag）
+
+- **v0.1–v0.2**：极简内核，包括 SKILL.md 和 fetch-prd、worktree、check 三个脚本，共约 280 行。回放 PR-02306 得 7/7（历史 5/7），用了 3.5M token（历史 73M）；回放 PR-01930 得 10/15（与历史持平），用了 22M token（历史 208M）。
+- **v0.3**：plan 依赖分批，子 agent 并行。回放 PR-01930 得 15/15，墙钟 29.6 分钟。
+- 动因见 [2026-10-09 现状审计](./reports/2026-10-09-status-audit.md)。

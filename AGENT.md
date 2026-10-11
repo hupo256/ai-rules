@@ -44,9 +44,9 @@
 
 - FameEX uses `feature/*` for features and `fix/*` for fixes; either may promote independently to `dev`, `test`, `pre`, or `online` — no linear promotion chain.
 - A `feature/*`/`fix/*` branch need not descend from `origin/online`; a failed ancestry check alone is no blocker for normal development or local commits.
-- Ordinary local commits keep Husky, lint-staged, Biome, and code-rules enabled; never `--no-verify`. If the legacy docs-tdd commit guard blocks only on an invalid ancestry assumption or stale v2 state, use `DOCS_TDD_COMMIT_MODE=off git commit ...`.
+- Ordinary local commits keep Husky, lint-staged, Biome, and code-rules enabled; never `--no-verify`.
 
 ## FameEX Local Execution Protocol
 
 - Before business coding in `~/github/fameex-web` or its worktrees, read repo `AGENTS.md`/`CLAUDE.md` and only topic-matching `.cursor/rules/*.mdc`.
-- New requests do not run `docs-tdd.mjs context/changed/gate/doctor` or build evidence suites. Legacy v1/v2 projects under `~/github/docs_tdd/prds/` follow their own README only when that project is the task.
+- New requests do not run `docs-tdd.mjs context/changed/gate/doctor` or build evidence suites. `~/github/docs_tdd` is a frozen read-only archive; a legacy v1/v2 project under its `prds/` follows its own README only when that project is the task.

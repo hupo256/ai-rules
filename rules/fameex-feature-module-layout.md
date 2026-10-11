@@ -7,7 +7,7 @@ applies-when: 功能较重（多 tab/分支、多层子组件、跨组件共享�
 
 # Structure a Complex Feature Module（复杂功能模块封装）
 
-> 本文是 L2 个人试运行规则：编码手艺 + FameEX 锚点（`apps/web` 结构、`CopySetting` 样板）。团队评审批准前只在本地载体维护，不写进 tracked `.cursor/rules/*.mdc`。放置标准见 fameex-web `apps/web/docs_tdd/common/rules/rule-inheritance.md` §0。
+> 本文是 L2 个人试运行规则：编码手艺 + FameEX 锚点（`apps/web` 结构、`CopySetting` 样板）。团队评审批准前只在本地载体维护，不写进 tracked `.cursor/rules/*.mdc`。放置标准见 `~/github/docs_tdd/common/rules/rule-inheritance.md` §0（docs_tdd 已冻结，只读归档）。
 
 功能较重（多个 tab/分支、多层子组件、有跨组件共享状态）时，按下面的目录结构与判据组织，而不是把所有东西堆进一个目录或一个巨型组件。以 `CopySetting/SettingForm/` 为参照：
 
