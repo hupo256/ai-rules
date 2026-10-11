@@ -12,8 +12,10 @@
 - 新增只有 zh-CN 的命名空间时，要登记到 `ZH_CN_SOURCE_ONLY_NAMESPACES`，否则其他语种加载会报错（PR-02463）。
 - 文案带 `& / <` 等符号又走插值时，会被 i18next 转义；能写死就写死，否则传 `interpolation: { escapeValue: false }`（PR-02306）。
 
-## MSW（仅限团队共享的手动 mock）
-- AI 自测不用 MSW：mock 写在浏览器验证 spec 里，不改业务代码（见 `references/browser.md`）。只有用户明确要求「团队成员手动点页面也要用的 mock」时才在业务仓接 MSW，下面几条是接入时的坑。
+## MSW（接口未就绪时写全 UI/UX）
+- 何时用、用多少见 SKILL §5：接口没上 dev 时自行决定，只 mock 本需求的新接口，fixture 最小化。
+- **接入现状**：`origin/online` 及各环境分支都还没有 MSW；完整接入只在 `feature/PR-02463`（apps/web）。app 未接入时，参照该分支在**单独一个提交**里补齐：`package.json` 加 devDependency `msw` 和脚本 `"msw:init": "msw init public/ --save=false"`（同步 pnpm-lock）；`src/mocks/browser.ts`（`setupWorker(...各功能 handlers)`）；`src/mocks/useMockWorker.ts`（仅 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'` 时动态 import 并 `worker.start({ onUnhandledRequest: 'bypass' })`，就绪后 `invalidateQueries`）；在 `[lang]/Providers.tsx` 调用 `useMockWorker(queryClient)`；以及下面三条。`public/mockServiceWorker.js` 由 `msw:init` 生成、已 gitignore，不提交。可直接 `git show feature/PR-02463:<路径>` 取原文。
+- 每个需求只新增 `src/mocks/<功能>/{handlers,fixtures}.ts` 并在 `browser.ts` 登记；联调完成删掉该目录和登记行。
 - MSW 的 `mockServiceWorker.js` 要加进 proxy 的 `LOCALE_BYPASS_PATTERNS`，否则会被语言重定向拦掉，mock 不生效（PR-02463）。
 - 要在 `useServiceWorkerRegistration` 里放行 mockServiceWorker，不然会被当成 PWA 的 SW 注销掉。
 - 开关只认 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'`，新环境变量要登记到 turbo.json 的 globalEnv。

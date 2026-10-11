@@ -81,7 +81,7 @@ node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID
 - 遵守全局规则和仓库 `AGENTS.md`/`CLAUDE.md`、按主题命中的 `.cursor/rules/*.mdc`、`coding-quality` skill。不需要额外读其他东西。
 - 按清单逐行实现。实现完一行，就在清单「落点文件」列填上真实路径。
 - 文案按 PRD 逐字写入，语言文件范围按仓库规则。文案里含 `&`、`/`、`<` 等符号且走 i18next 插值时，要防止被转义成 `&amp;`；能直接写进文案就不要用插值。
-- 接口未就绪时，按已知契约写好代码，在清单里标「待联调」。**自测用的 mock 只写在浏览器验证 spec 里**（`references/browser.md`），不往业务仓加 MSW handler、mock 数据文件或 `USE_MOCK` 分支；只有用户明确要求团队共享的手动 mock 时才用 MSW（`references/fameex.md`）。
+- 接口未就绪（dev 上还没有或字段不全）时，按已知契约写好代码，在清单里标「待联调」，并**自行决定**加最小 MSW mock 把 UI/UX 写全、本地能点通，不用等用户提出：只为本需求新增/变更的接口写 handler 和 fixture，放 `src/mocks/<功能>/`，只在 `NEXT_PUBLIC_ENABLE_MSW=true` 的本地开发下生效，业务代码里不写 mock 分支。该 app 还没有 MSW 接入时，按 `references/fameex.md` 的清单单独一个提交补齐；legacy Vue2 工程不接 MSW。接口上了 dev 就删对应 handler、改走真实请求。只为验证构造的边缘数据态（空、报错、极端值）写在浏览器验证 spec 里，不进 MSW。
 - 写操作（绑定/解绑/提交/删除/状态上报）成功后，要让依赖该数据的服务端状态刷新（React Query `invalidateQueries` 用户资料、列表等），不能只关弹窗、弹提示。
 
 ## 6. 检查（只查改动）
@@ -129,6 +129,6 @@ cd ~/github/<ID> && git add -- <本次改动的具体文件...> && git commit -m
 
 ## 10. 交付说明（给用户，≤15 行）
 
-包括：提交 SHA；**上线前必须替换的占位**（码值、接口路径、配置 ID，逐个列文件:行，并注明占位选项现在是否会被用户选到）；清单完成情况（✅ / 待联调 / 待确认）；冷读发现了什么、怎么处理的；哪些检查跑了、哪些没跑（直接写 `not-required` 或原因）。
+包括：提交 SHA；**上线前必须替换的占位**（码值、接口路径、配置 ID，逐个列文件:行，并注明占位选项现在是否会被用户选到）；清单完成情况（✅ / 待联调 / 待确认）；MSW mock（handler 文件与对应接口，接口上 dev 后删除）；冷读发现了什么、怎么处理的；哪些检查跑了、哪些没跑（直接写 `not-required` 或原因）。
 
 交付前运行 `node $S/stats.mjs <ID>`，把 token 和墙钟追加到 run-log，并在交付说明末尾附上一行合计。

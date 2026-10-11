@@ -6,6 +6,7 @@
 
 ```bash
 node $S/dev.mjs start ~/github/<ID> --site web          # web 4710 | admin 4711 | legacy-admin 8109 | futures-legacy-admin 8110
+# 需求带 MSW mock 时：先在 app 目录跑一次 `pnpm msw:init`，再以 NEXT_PUBLIC_ENABLE_MSW=true node $S/dev.mjs start ... 启动（进程环境变量优先于 .env 文件）
 node $S/dev.mjs status ~/github/<ID> --site web
 node $S/dev.mjs stop ~/github/<ID> --site web           # 交付后停掉
 ```
