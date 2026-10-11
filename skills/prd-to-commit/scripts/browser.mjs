@@ -186,7 +186,7 @@ if (cmd === 'run') {
       return route.fulfill({ status: m.status ?? 200, contentType: 'application/json', body: JSON.stringify(m.json ?? { code: '0', msg: '', data: null }) })
     })
   }
-  // 2) 写保护：未 mock 的写操作类请求默认拦截（避免改动 Test 环境数据）；spec.allowWrites = [/regex/] 可放行
+  // 2) 写保护：未 mock 的写操作类请求默认拦截（避免改动 dev 环境数据）；spec.allowWrites = [/regex/] 可放行
   const WRITE = /(create|add|insert|update|edit|modify|delete|remove|submit|save|apply|bind|unbind|invalid|cancel|transfer|withdraw|deposit|place|order\/new)/i
   // 登出类接口无论如何都拦（放行会让服务端会话失效，保存的登录态就废了）
   const LOGOUT = /(log_?out|login_?out|sign_?out)/i

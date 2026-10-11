@@ -1,9 +1,9 @@
 {
-  "_comment": "FameEX 各站点的本地验证配置。端口固定：登录态（cookie/localStorage）按 origin 保存，换端口就丢。{port} 会被替换。后台统一连 test 环境（dvmkgi）；legacy 的代理目标经 legacy-vue.config.cjs 覆盖，不改仓库文件。 后台只需登录 legacy-admin（现货后台）一次：admin 复制其 localStorage（admin_token、ADMIN_USERINFO），futures-legacy-admin 用 window.name 注入 admin_token（与人工在 console 设置等价）。 apps/futures-admin 的 Next 工程已停用（90 天 0 提交），合约后台只验证 futures-legacy-admin。",
+  "_comment": "FameEX 各站点的本地验证配置。端口固定：登录态（cookie/localStorage）按 origin 保存，换端口就丢。{port} 会被替换。所有站点统一连 dev 环境（pfyys）：开发期接口先发 dev、在 dev 联调完才上 test。Next 站点用仓库的 .env.dev；legacy 工程的仓库代理本身就指向 pfyys，legacy-vue.config.cjs 只用来关掉自动打开浏览器（需要临时连别的环境时再传 P2C_PROXY_FROM/P2C_PROXY_TO）。 后台只需登录 legacy-admin（现货后台）一次：admin 复制其 localStorage（admin_token、ADMIN_USERINFO），futures-legacy-admin 用 window.name 注入 admin_token（与人工在 console 设置等价）。 apps/futures-admin 的 Next 工程已停用（90 天 0 提交），合约后台只验证 futures-legacy-admin。",
   "web": {
     "app": "apps/web",
     "port": 4710,
-    "start": "PORT={port} pnpm dev:test",
+    "start": "PORT={port} pnpm dev",
     "basePath": "/zh-CN",
     "loginPath": "/zh-CN/login",
     "authCheckPath": "/zh-CN/assets",
@@ -12,7 +12,7 @@
   "admin": {
     "app": "apps/admin",
     "port": 4711,
-    "start": "cp config/environments/.env.test .env.development.local && NEXT_PUBLIC_LOCAL_DEV=true NEXT_PUBLIC_ORIGIN=http://localhost:{port} pnpm exec next dev --port {port}",
+    "start": "cp config/environments/.env.dev .env.development.local && NEXT_PUBLIC_LOCAL_DEV=true NEXT_PUBLIC_ORIGIN=http://localhost:{port} pnpm exec next dev --port {port}",
     "basePath": "/zh-CN",
     "loginPath": "/zh-CN/login",
     "authCheckPath": "/zh-CN/coupon-records/trial-fee-claim-log",
@@ -30,7 +30,7 @@
     "app": "apps/admin/legacy-admin",
     "port": 8109,
     "install": "npm install --no-audit --no-fund",
-    "start": "VUE_CLI_SERVICE_CONFIG_PATH=$HOME/.ai-rules/skills/prd-to-commit/scripts/legacy-vue.config.cjs P2C_ORIGINAL_VUE_CONFIG=$PWD/vue.config.js P2C_PROXY_FROM=pfyys.com P2C_PROXY_TO=dvmkgi.vip npx vue-cli-service serve --mode test --port {port}",
+    "start": "VUE_CLI_SERVICE_CONFIG_PATH=$HOME/.ai-rules/skills/prd-to-commit/scripts/legacy-vue.config.cjs P2C_ORIGINAL_VUE_CONFIG=$PWD/vue.config.js npx vue-cli-service serve --mode dev --port {port}",
     "basePath": "/",
     "loginPath": "/#/login",
     "authCheckPath": "/#/",
@@ -44,7 +44,7 @@
     "app": "apps/futures-admin/legacy-admin",
     "port": 8110,
     "install": "npm install --no-audit --no-fund",
-    "start": "VUE_CLI_SERVICE_CONFIG_PATH=$HOME/.ai-rules/skills/prd-to-commit/scripts/legacy-vue.config.cjs P2C_ORIGINAL_VUE_CONFIG=$PWD/vue.config.js P2C_PROXY_FROM=pfyys.com P2C_PROXY_TO=dvmkgi.vip npx vue-cli-service serve --mode test --port {port}",
+    "start": "VUE_CLI_SERVICE_CONFIG_PATH=$HOME/.ai-rules/skills/prd-to-commit/scripts/legacy-vue.config.cjs P2C_ORIGINAL_VUE_CONFIG=$PWD/vue.config.js npx vue-cli-service serve --mode dev --port {port}",
     "basePath": "/",
     "loginPath": "/#/login",
     "authCheckPath": "/#/userData/flowerQuery",

@@ -11,7 +11,7 @@ node $S/dev.mjs stop ~/github/<ID> --site web           # 交付后停掉
 ```
 
 - 端口固定，因为登录态按 origin 保存。同一站点同时只跑一个 dev server，启动时会自动停掉其他 worktree 占用的同端口进程。
-- **所有站点统一连 test 环境（dvmkgi）**：Next 站点用 `.env.test`；legacy 工程的开发代理在仓库里写死为 pfyys，由 `scripts/legacy-vue.config.cjs` 通过 `VUE_CLI_SERVICE_CONFIG_PATH` 覆盖为 dvmkgi，不改仓库文件。legacy 第一次启动时会自动 `npm install`。
+- **所有站点统一连 dev 环境（pfyys）**：开发期接口先发 dev，在 dev 联调完才上 test，dev 上的数据也更好操作。Next 站点用仓库的 `.env.dev`（等同 `pnpm dev`）；legacy 工程的仓库代理本来就指向 pfyys，以 `--mode dev` 启动。`scripts/legacy-vue.config.cjs` 只用来关掉自动打开浏览器；确需临时连别的环境时，在启动命令前加 `P2C_PROXY_FROM=pfyys.com P2C_PROXY_TO=<目标域名>`，不改仓库文件。legacy 第一次启动时会自动 `npm install`。
 - 多个站点可以同时运行（端口各不相同），按需启动即可。
 
 ## 2. 登录态
@@ -21,6 +21,7 @@ node $S/browser.mjs check --site web     # 无头检查；失效返回码 2
 ```
 
 - 每个站点有一个专用 Chrome profile（`~/.config/prd-to-commit/browser/<site>`），由**用户手动登录一次**，脚本之后以无头方式复用。
+- 登录态按环境区分：换环境后旧登录态无效，要重新 login。
 - **只需登录两次**：`web`（C 端）和 `legacy-admin`（现货后台）。`admin`（Next 后台）会自动复制 legacy-admin 的 localStorage（`admin_token`、`ADMIN_USERINFO`）；`futures-legacy-admin`（合约后台）会在页面加载前设置 `window.name = admin_token`（等价于人工在 console 里设置），都不用单独登录。
 - `apps/futures-admin` 的 Next 工程已停用，不在支持范围内。
 - check 失效时，**告诉用户运行 `node $S/browser.mjs login --site <site>` 重新登录**（这一步需要人工过验证码或 GA）。这期间先做不依赖登录的验证。
@@ -41,7 +42,7 @@ export const mocks = [                    // 接口没就绪、或要构造特�
   { url: /\/fe-ex-api\/finance\/launchpool\/projects/, json: { code: '0', msg: '', data: { list: [/* 按清单契约构造 */] } } },
   { url: /\/manualInvalid\/submit/, method: 'POST', json: { code: '0', msg: '操作成功', data: null } },
 ]
-// export const allowWrites = [/\/some\/safe-write/]     // 确需真实写入 test 环境时才放行（默认拦截）
+// export const allowWrites = [/\/some\/safe-write/]     // 确需真实写入 dev 环境时才放行（默认拦截）
 
 export default async ({ goto, step, expectText, page, shot }) => {
   await step('列表页展示', async () => {
