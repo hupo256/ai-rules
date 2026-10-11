@@ -61,4 +61,4 @@ If a simpler, more local, or more architecture-aligned implementation is availab
 | Moving fixed product copy into constants/i18n; copy-as-contract assertions | [references/copy-contracts.md](references/copy-contracts.md) |
 | Turning PRD bullets into tasks/acceptance; deciding whether evidence really proves copy, DOM behavior, logic, payload, interaction, or visual requirements | [references/acceptance-evidence.md](references/acceptance-evidence.md) |
 | Repeated JSX blocks (tabs/steps/rows/cards/chips); shared prop contracts across sibling components/variants | [references/data-driven-rendering.md](references/data-driven-rendering.md) |
-| `useXxxForm` / `useXxxParams` hooks: server-edit-state backfill, in-flight vs committed value, memoized return | [references/controlled-form-hooks.md](references/controlled-form-hooks.md) |
+| `useXxxForm` / `useXxxParams` hooks: server-edit-state backfill, in-flight vs committed value, memoized return; a toggle/setting read from a server query and sent with a write (unknown ≠ unset default) | [references/controlled-form-hooks.md](references/controlled-form-hooks.md) |
