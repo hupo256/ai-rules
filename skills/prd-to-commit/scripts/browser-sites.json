@@ -1,6 +1,6 @@
 {
   "_env": "dev",
-  "_comment": "FameEX 各站点的本地验证配置。端口固定：登录态（cookie/localStorage）按 origin 保存，换端口就丢。{port} 会被替换。所有站点统一连 dev 环境（pfyys）：开发期接口先发 dev、在 dev 联调完才上 test。Next 站点用仓库的 .env.dev；legacy 工程的仓库代理本身就指向 pfyys，legacy-vue.config.cjs 只用来关掉自动打开浏览器（需要临时连别的环境时再传 P2C_PROXY_FROM/P2C_PROXY_TO）。 后台只需登录 legacy-admin（现货后台）一次：admin 复制其 localStorage（admin_token、ADMIN_USERINFO），futures-legacy-admin 用 window.name 注入 admin_token（与人工在 console 设置等价）。 apps/futures-admin 的 Next 工程已停用（90 天 0 提交），合约后台只验证 futures-legacy-admin。",
+  "_comment": "FameEX 各站点的本地验证配置。端口固定：登录态（cookie/localStorage）按 origin 保存，换端口就丢。{port} 会被替换。所有站点统一连 dev 环境（pfyys）：开发期接口先发 dev、在 dev 联调完才上 test。Next 站点用仓库的 .env.dev；legacy 工程的仓库代理本身就指向 pfyys，legacy-vue.config.cjs 只用来关掉自动打开浏览器（需要临时连别的环境时再传 P2C_PROXY_FROM/P2C_PROXY_TO）。 后台只需登录 legacy-admin（现货后台）一次：admin 复制其 localStorage（admin_token、ADMIN_USERINFO），futures-legacy-admin 用 window.name 注入 admin_token（与人工在 console 设置等价）。 apps/futures-admin 的 Next 工程已停用（90 天 0 提交），合约后台只验证 futures-legacy-admin。 web-next（Vite + TanStack Start）没有路由级登录跳转，登录态靠 authProbe 判断：已登录时首页会请求 user_info_v1，未登录不请求即视为无效，返回 10002 视为失效。",
   "web": {
     "app": "apps/web",
     "port": 4710,
@@ -57,6 +57,19 @@
     "tokenFrom": {
       "site": "legacy-admin",
       "inject": "window.name"
+    }
+  },
+  "web-next": {
+    "app": "apps/web-next",
+    "port": 4001,
+    "start": "PORT={port} pnpm dev",
+    "basePath": "/zh-CN",
+    "loginPath": "/zh-CN/login",
+    "authCheckPath": "/zh-CN/",
+    "loggedOutPattern": "/login",
+    "authProbe": {
+      "url": "/fe-ex-api/common/user_info_v1",
+      "fail": "\"code\":\"?10002|登录状态已失效"
     }
   }
 }

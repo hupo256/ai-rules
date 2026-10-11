@@ -5,7 +5,7 @@
 ## 1. 起 dev server（固定端口）
 
 ```bash
-node $S/dev.mjs start ~/github/<ID> --site web          # web 4710 | admin 4711 | legacy-admin 8109 | futures-legacy-admin 8110
+node $S/dev.mjs start ~/github/<ID> --site web          # web 4710 | web-next 4001 | admin 4711 | legacy-admin 8109 | futures-legacy-admin 8110
 # 需求带 MSW mock 时：先在 app 目录跑一次 `pnpm msw:init`，再以 NEXT_PUBLIC_ENABLE_MSW=true node $S/dev.mjs start ... 启动（进程环境变量优先于 .env 文件）
 node $S/dev.mjs status ~/github/<ID> --site web
 node $S/dev.mjs stop ~/github/<ID> --site web           # 交付后停掉
@@ -23,6 +23,7 @@ node $S/browser.mjs check --site web     # 无头检查；失效返回码 2
 
 - 每个站点有一个专用 Chrome profile（`~/.config/prd-to-commit/browser/<site>`），由**用户手动登录一次**，脚本之后以无头方式复用。
 - 登录态按环境区分：`browser-sites.json` 的 `_env` 是当前环境，每个 profile 旁边的 `<site>.env` 记录它登录时的环境。环境不符时 `check`/`run` 直接报错要求重新登录；`login` 会先把旧 profile 移到 `archive-<旧环境>-<时间戳>/` 再打开干净窗口。不能复用旧环境的 profile：旧 token 会让页面在「跳资产页 → 401 → 回登录页」之间无限刷新，人也没法操作。
+- web-next 是独立 origin（4001），登录态不与 web 共享，要单独登录一次；它没有路由级登录跳转，`check` 靠 `authProbe`（首页请求 `user_info_v1`）判断。
 - **只需登录两次**：`web`（C 端）和 `legacy-admin`（现货后台）。`admin`（Next 后台）会自动复制 legacy-admin 的 localStorage（`admin_token`、`ADMIN_USERINFO`）；`futures-legacy-admin`（合约后台）会在页面加载前设置 `window.name = admin_token`（等价于人工在 console 里设置），都不用单独登录。
 - `apps/futures-admin` 的 Next 工程已停用，不在支持范围内。
 - check 失效时，**告诉用户运行 `node $S/browser.mjs login --site <site>` 重新登录**（这一步需要人工过验证码或 GA）。这期间先做不依赖登录的验证。
