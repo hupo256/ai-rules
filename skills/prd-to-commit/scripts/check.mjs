@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // 只检查本次改动：
 // - 现代工程：biome（改动文件）+ tsc（受影响 app，只报告落在「改动行」上的错误，存量错误不归本次）
+// - 代码规则：code-rules.mjs（biome/tsc 不覆盖的 error 级约定，只看改动行；legacy 不扫）
 // - legacy Vue2/JS（biome、tsc 都不覆盖）：JS 与 .vue 的 <script> 做 ESM 语法检查；.vue 模板无编译器，报 not-covered
 // - 改动/新增的测试文件：vitest 只跑这些文件
 // usage: check.mjs [--base origin/online]   （在 worktree 根目录运行；--base 可为分支或 commit）
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 const args = process.argv.slice(2)
 const base = args.includes('--base') ? args[args.indexOf('--base') + 1] : 'origin/online'
@@ -66,6 +68,18 @@ if (code.length) {
     const preexisting = inFiles.length - onChangedLines.length
     if (preexisting) console.log(`  note: ${preexisting} pre-existing error(s) in changed files on untouched lines (ignored); ${errors.length} total in app`)
   }
+}
+
+// 代码规则（code-rules.mjs）：biome/tsc 管不到的 error 级约定（组件直连 fetch、parse as、mock 泄漏、300 行等），只看改动行
+// 除 code 外也要传 package.json/.scss/.env（E2E-001、STYLE-001、MOCK-004 看这些）；legacy 不扫；退出码 2 = 工具失败，同样算 FAIL
+const ruleFiles = changed.filter((file) => !isLegacy(file))
+if (ruleFiles.length) {
+  const script = fileURLToPath(new URL('./code-rules.mjs', import.meta.url))
+  const rules = spawnSync('node', [script, '--base', base, '--files', ruleFiles.join(',')], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  if (rules.status !== 0) {
+    failed = true
+    console.log(`\n[code-rules] FAIL${rules.status === 1 ? '' : ' (tool failure)'}\n${(rules.stdout + rules.stderr).trim()}`)
+  } else console.log('[code-rules] pass')
 }
 
 if (legacy.length) {

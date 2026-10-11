@@ -87,7 +87,7 @@ node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID
 ## 6. 检查（只查改动）
 
 ```bash
-cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报改动行）；legacy JS/.vue 做语法检查；改动的测试文件跑 vitest
+cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报改动行）+ code-rules（豁免写 `// code-rules-ignore <ID>: <理由>`）；legacy JS/.vue 做语法检查；改动的测试文件跑 vitest
 ```
 
 手动跑格式化（`biome check --write` 等）时只传本次改动的具体文件，不要传目录，否则会格式化无关文件。输出里的 `not-covered`（例如 legacy `.vue` 模板）不能算通过，要在交付说明里如实写出。
