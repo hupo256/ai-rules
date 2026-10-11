@@ -81,7 +81,7 @@ node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID
 - 遵守全局规则和仓库 `AGENTS.md`/`CLAUDE.md`、按主题命中的 `.cursor/rules/*.mdc`、`coding-quality` skill。不需要额外读其他东西。
 - 按清单逐行实现。实现完一行，就在清单「落点文件」列填上真实路径。
 - 文案按 PRD 逐字写入，语言文件范围按仓库规则。文案里含 `&`、`/`、`<` 等符号且走 i18next 插值时，要防止被转义成 `&amp;`；能直接写进文案就不要用插值。
-- 接口未就绪（dev 上还没有或字段不全）时，按已知契约写好代码，在清单里标「待联调」，并**自行决定**加最小 MSW mock 把 UI/UX 写全、本地能点通，不用等用户提出：只为本需求新增/变更的接口写 handler 和 fixture，放 `src/mocks/<功能>/`，只在 `NEXT_PUBLIC_ENABLE_MSW=true` 的本地开发下生效，业务代码里不写 mock 分支。该 app 还没有 MSW 接入时，按 `references/fameex.md` 的清单单独一个提交补齐；legacy Vue2 工程不接 MSW。接口上了 dev 就删对应 handler、改走真实请求。只为验证构造的边缘数据态（空、报错、极端值）写在浏览器验证 spec 里，不进 MSW。
+- 接口未就绪（dev 上还没有或字段不全）时，按已知契约写好代码，在清单里标「待联调」，并**自行决定**加最小 MSW mock 把 UI/UX 写全、本地能点通，不用等用户提出：只为本需求新增/变更的接口写 handler 和 fixture，放 `src/mocks/<功能>/`，只在 `NEXT_PUBLIC_ENABLE_MSW=true` 的本地开发下生效，业务代码里不写 mock 分支。该 app 还没有 MSW 接入时，按 `references/fameex.md` 的清单单独一个提交补齐；legacy Vue2 工程不接 MSW。接口上了 dev 就删对应 handler 和登记行、改走真实请求，MSW 基建保留不删。只为验证构造的边缘数据态（空、报错、极端值）写在浏览器验证 spec 里，不进 MSW。
 - 写操作（绑定/解绑/提交/删除/状态上报）成功后，要让依赖该数据的服务端状态刷新（React Query `invalidateQueries` 用户资料、列表等），不能只关弹窗、弹提示。
 
 ## 6. 检查（只查改动）

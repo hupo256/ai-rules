@@ -14,11 +14,11 @@
 
 ## MSW（接口未就绪时写全 UI/UX）
 - 何时用、用多少见 SKILL §5：接口没上 dev 时自行决定，只 mock 本需求的新接口，fixture 最小化。
-- **接入现状**：`origin/online` 及各环境分支都还没有 MSW；完整接入只在 `feature/PR-02463`（apps/web）。app 未接入时，参照该分支在**单独一个提交**里补齐：`package.json` 加 devDependency `msw` 和脚本 `"msw:init": "msw init public/ --save=false"`（同步 pnpm-lock）；`src/mocks/browser.ts`（`setupWorker(...各功能 handlers)`）；`src/mocks/useMockWorker.ts`（仅 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'` 时动态 import 并 `worker.start({ onUnhandledRequest: 'bypass' })`，就绪后 `invalidateQueries`）；在 `[lang]/Providers.tsx` 调用 `useMockWorker(queryClient)`；以及下面三条。`public/mockServiceWorker.js` 由 `msw:init` 生成、已 gitignore，不提交。可直接 `git show feature/PR-02463:<路径>` 取原文。
-- 每个需求只新增 `src/mocks/<功能>/{handlers,fixtures}.ts` 并在 `browser.ts` 登记；联调完成删掉该目录和登记行。
-- MSW 的 `mockServiceWorker.js` 要加进 proxy 的 `LOCALE_BYPASS_PATTERNS`，否则会被语言重定向拦掉，mock 不生效（PR-02463）。
-- 要在 `useServiceWorkerRegistration` 里放行 mockServiceWorker，不然会被当成 PWA 的 SW 注销掉。
-- 开关只认 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'`，新环境变量要登记到 turbo.json 的 globalEnv。
+- **基建常驻（apps/web）**：`src/mocks/` 下的 `browser.ts`、`useMockWorker.ts`、`handlers.ts`（登记表）和 `README.md`，加上 `Providers.tsx` 的 `useMockWorker`、proxy 与 SW 注册对 worker 的放行、`msw` 依赖与 `msw:init`、`turbo.json` 的 `NEXT_PUBLIC_ENABLE_MSW`。由 `feature/msw-infra`（d4e3f12b86）提供，**合入 online 前**，基于 online 的需求分支没有这套基建：先 `git cherry-pick d4e3f12b86` 作为单独一个提交带上，不要手抄。用法以仓库里的 `src/mocks/README.md` 为准。
+- 每个需求只新增 `src/mocks/<功能>/{handlers,fixtures}.ts`，并在 `src/mocks/handlers.ts` 登记一行。接口就绪后**只删这两处**，基建一律保留（以前连基建一起清掉，下个需求又得重接）。
+- worktree 里先跑一次 `pnpm --filter @fameex/web msw:init` 生成 worker 文件（已 gitignore）。
+- 基建已处理的三个坑（PR-02463 踩过），改动这些文件时别破坏：worker 要在 proxy 的 `LOCALE_BYPASS_PATTERNS` 里放行，否则被语言重定向拦掉；`useServiceWorkerRegistration` 不能把 mockServiceWorker 当 PWA 的 SW 注销；开关只认 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'`，并已登记在 `turbo.json` 的 globalEnv。
+- 需要给 apps/admin（Next 后台）用 MSW 时，照 apps/web 的基建另起一个单独提交接入。
 - 浏览器验证（登录态、mock、写保护、截图）统一走 `references/browser.md` 的 `dev.mjs` + `browser.mjs`，不再手写假 token。
 
 ## 测试
