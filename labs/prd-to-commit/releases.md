@@ -20,6 +20,7 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 - **因存量测试撤回修复**（PR-01507）：同因修复破坏了存量组件测试就撤回，被第 2 轮冷读驳回。候选（§8）：「修复破坏存量测试时照兄弟测试的 mock 适配，不以此撤回修复」。
 - **并行批次各自实现同一展示件**（PR-01507）：阶梯 APR 提示 3 份、格式不一。候选（§3.5）：「同一展示件出现在 ≥2 个批次的页面时归批次 0 共享件，派活时写明禁止各自实现」。
 - ~~**状态未知当默认值提交**~~（PR-01507，资金类）：用户决定（2026-10-11）作为通用编码手艺写入 `coding-quality` → `references/controlled-form-hooks.md`「Unknown is not unset」，不进本 skill，移出观察清单。
+- **browser.mjs 并行收尾卡死**（PR-01507）：同时启动两个 `browser.mjs run`（各自 profile 副本），所有步骤和截图都完成了，但两个进程都卡在收尾，不写 `report.md` 也不退出，只能手动结束；单独运行正常。脚本注释写「允许并行」，需要复现后查 context 关闭或 dev server 的连接问题。
 - **回放执行方反馈**（P1-02306）：§7「冷读默认前台」与浏览器验证可并行的说法分散在 §3.5 末尾；dev 起不来时修依赖还是记 not-covered 没写明；冷读提示「列出埋点」在 PRD 无埋点时是噪音；「补显示 PRD 漏写的校验条件」与冷读第 4 步必然互相触发。
 
 ## v1.4 — 2026-10-11
@@ -38,7 +39,7 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
   - 测试失败时自动在 base 的临时 worktree（软链复用 node_modules，结束只解除软链再移除）复跑失败文件，base 上同样失败的用例标 `pre-existing`、不算本次 FAIL；解析不到失败用例时仍按 FAIL。PR-02463 与 PR-01507 各遇到 2 例存量失败，都是人工建临时 worktree 才确认。
   - TanStack 路由：新增/改名的 routes 文件必须出现在 `routeTree.gen.ts` 的 import 里、删除的不能还在，否则报 FAIL 并给出生成方法（路由树只能由 vite 插件生成，离线调 router-generator 会缺 Start 的 Register 声明，不采用）。
   - 验证：PR-01507 worktree 干净状态 pass + 2 条 pre-existing；注入新失败测试、改坏 base 能过的存量测试、新增路由不生成，三种都判 FAIL 且点名；admin 测试用自带配置跑通；临时 worktree 清理后依赖完好。
-- `27b0908`、`5a8bfa1`（2026-10-11）：**web-next 站点**。`browser-sites.json` 加 `web-next`（4001，`PORT={port} pnpm dev`）；web-next 没有路由级登录跳转，登录态靠 `authProbe`（首页请求 `/fe-ex-api/common/user_info_v1`，未请求即无效，10002 即失效）。验证：正式脚本 `dev.mjs start/stop` 与未登录 spec（PR-01507 首页 7/7）跑通；**authProbe 待第一次真实登录后确认**。
+- `27b0908`、`5a8bfa1`（2026-10-11）：**web-next 站点**。`browser-sites.json` 加 `web-next`（4001，`PORT={port} pnpm dev`）；web-next 没有路由级登录跳转，登录态靠 `authProbe`（首页请求 `/fe-ex-api/common/user_info_v1`，未请求即无效，10002 即失效）。验证：正式脚本 `dev.mjs start/stop` 与未登录 spec（PR-01507 首页 7/7）跑通；authProbe 已于 2026-10-11 首次真实登录后确认：`check` 判有效（脚本只有观察到 `user_info_v1` 才会判有效），PR-01507 登录后 spec 申购 9/9、理财账户 7/7 通过。
 - `e102214`、`b281d6b`（2026-10-11）：**建完 worktree 就查登录态**（第 2 次出现：PR-02463 登录态不可用只能改用假 token，PR-01507 全程未登录、登录后 spec 全部 not-covered）。`references/browser.md` 写明做法；SKILL.md §4 加 1 行指针，§4/§6 措辞压缩，137 行、17999 字节。证据：P1-02306 回放 7/7、陷阱 0、8.1M、15 分钟。
 - `c1d853a`、`33813d9`（2026-10-11）：`references/fameex.md` 新增 web-next 小节（编码规范入口、路由树、无登录守卫、强制暗色、i18n 登记、无 MSW、Header SPA 链接与测试 mock、宿主页仍在 apps/web、契约可取 apps/web），测试小节同步 check.mjs 新行为。
 - `4254c22`（2026-10-11）：**新增回放基准 PR-01507**（web-next 迁移型、大、适合并行批次、契约在兄弟 app）：18 个检查点 + 5 个陷阱，快照 `~/.prd-cache/REPLAY-01507/r6723`（含 figma/）；对照组为 2026-10-11 实跑首轮 13/18（不是线上历史，线上旧实现在 apps/web）。`prepare.sh` 试跑通过。
