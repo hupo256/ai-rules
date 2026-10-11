@@ -21,6 +21,7 @@ node $S/dev.mjs stop ~/github/<ID> --site web           # 交付后停掉
 node $S/browser.mjs check --site web     # 无头检查；失效返回码 2
 ```
 
+- **尽早检查**：§4 建好 worktree 后，就对本需求会验证的站点逐个跑 `check`（还没登录过的站点会直接报「还没登录过」）。失效或从未登录时，立刻请用户执行 `login`，并在同一条消息里说明编码会继续进行；不要等到 §6 才发现。「直接做」模式下用户往往不在场，越晚提越可能整段 not-covered（PR-02463 只能改用假 token，PR-01507 登录后的 spec 全部没跑）。
 - 每个站点有一个专用 Chrome profile（`~/.config/prd-to-commit/browser/<site>`），由**用户手动登录一次**，脚本之后以无头方式复用。
 - 登录态按环境区分：`browser-sites.json` 的 `_env` 是当前环境，每个 profile 旁边的 `<site>.env` 记录它登录时的环境。环境不符时 `check`/`run` 直接报错要求重新登录；`login` 会先把旧 profile 移到 `archive-<旧环境>-<时间戳>/` 再打开干净窗口。不能复用旧环境的 profile：旧 token 会让页面在「跳资产页 → 401 → 回登录页」之间无限刷新，人也没法操作。
 - web-next 是独立 origin（4001），登录态不与 web 共享，要单独登录一次；它没有路由级登录跳转，`check` 靠 `authProbe`（首页请求 `user_info_v1`）判断。
