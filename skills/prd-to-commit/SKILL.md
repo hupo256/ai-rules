@@ -72,9 +72,11 @@ node $S/fetch-prd.mjs <ID> <lark-url>          # → ~/.prd-cache/<ID>/r<rev>/{p
 node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID> 基于 origin/online，自动装依赖
 ```
 
-已存在就复用。远端已有同名分支时脚本会拒绝创建：改用 `--branch <名字>`，或者问用户是否在远端分支上继续。之后所有改动都在该路径内进行。
+已存在就复用；远端已有同名分支时脚本拒绝创建，改用 `--branch <名字>` 或问用户是否在远端分支上继续。之后改动都在该路径内。
 
-**禁止在 fameex-web 用 `git stash`**：所有 worktree 共用一个 stash 栈，pop 可能弹出别人的改动。需要对比改动前后时，用 `git show HEAD:<file>` 或临时 worktree。
+**禁止在 fameex-web 用 `git stash`**：所有 worktree 共用 stash 栈。对比改动前后用 `git show HEAD:<file>` 或临时 worktree。
+
+需浏览器验证时，建完 worktree 就对涉及站点跑 `browser.mjs check`，失效立刻请用户 `login`、编码照常进行（`references/browser.md`）。
 
 ## 5. 编码
 
@@ -93,7 +95,7 @@ cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报�
 
 手动跑格式化（`biome check --write` 等）时只传本次改动的具体文件，不要传目录，否则会格式化无关文件。输出里的 `not-covered`（例如 legacy `.vue` 模板）不能算通过，要在交付说明里如实写出。
 
-**浏览器验证（改动涉及可见 UI 时必做）**：按 `references/browser.md` 用 `dev.mjs` 起固定端口的 dev server、`browser.mjs` 复用已保存的登录态跑验证 spec（接口没好就在 spec 里 mock；dev 上写操作默认真实执行，其他环境一律拦截），逐张查看截图对照 PRD/Figma。登录态失效时请用户执行 `browser.mjs login --site <site>`，期间先做其他验证；确实跑不了的写 `not-covered: <原因>`，不要假装通过。
+**浏览器验证（改动涉及可见 UI 时必做）**：按 `references/browser.md` 用 `dev.mjs` 起固定端口的 dev server、`browser.mjs` 复用已保存的登录态跑验证 spec（接口没好就在 spec 里 mock；dev 上写操作默认真实执行，其他环境一律拦截），逐张查看截图对照 PRD/Figma。登录态仍未就绪（见 §4）时先做其他验证；确实跑不了的写 `not-covered: <原因>`，不要假装通过。
 
 ## 7. 独立冷读（必须用子 agent，不能自查）
 
