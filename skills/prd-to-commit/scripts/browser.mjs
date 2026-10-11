@@ -4,12 +4,12 @@
 //   check  --site web              无头检查登录态是否仍有效
 //   run    <spec.mjs> --id <ID>    执行验证脚本，截图 + 报告写到 ~/.prd-cache/<ID>/browser/<时间>/
 // 依赖：对应站点的 dev server 已由 dev.mjs 启动；Playwright 取自 worktree 的 node_modules（回退全局）。
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { execSync } from 'node:child_process'
+import { execSync, spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
 const args = process.argv.slice(2)
@@ -18,6 +18,11 @@ const opt = (name, fallback) => (args.includes(name) ? args[args.indexOf(name) +
 const here = dirname(fileURLToPath(import.meta.url))
 const sites = JSON.parse(readFileSync(join(here, 'browser-sites.json'), 'utf8'))
 const profileRoot = join(homedir(), '.config', 'prd-to-commit', 'browser')
+// 登录态按环境区分：profile 旁边的 <site>.env 记录它是在哪个环境登录的。换环境后旧 token 会让页面在
+// 「有 token → 跳资产页 → 401 → 回登录页」之间无限刷新，所以环境不符的 profile 一律不复用。
+const siteEnv = sites._env || 'unknown'
+const envMarker = (conf) => `${conf.profile}.env`
+const profileEnv = (conf) => (existsSync(envMarker(conf)) ? readFileSync(envMarker(conf), 'utf8').trim() : null)
 
 function loadPlaywright() {
   const roots = [opt('--worktree'), process.cwd(), join(homedir(), 'github', 'fameex-web')].filter(Boolean)
@@ -47,6 +52,9 @@ function profileCopy(conf) {
   if (!existsSync(conf.profile)) {
     if (conf.tokenFrom) return copy
     throw new Error(`站点 ${conf.name} 还没登录过：先运行 browser.mjs login --site ${conf.name}`)
+  }
+  if (profileEnv(conf) !== siteEnv) {
+    throw new Error(`站点 ${conf.name} 的登录态属于 ${profileEnv(conf) || '未标记'} 环境，当前为 ${siteEnv}：运行 browser.mjs login --site ${conf.name} 重新登录`)
   }
   cpSync(conf.profile, copy, { recursive: true, filter: (src) => !/Singleton(Lock|Socket|Cookie)/.test(src) })
   return copy
@@ -102,6 +110,58 @@ async function injectSharedAuth(context, conf) {
   }, payload)
 }
 
+// 浏览器级 CDP 连接（不 attach 任何页面）：只发 Storage / Target 域命令
+async function connectBrowserCdp(port) {
+  let wsUrl = null
+  for (let i = 0; i < 60 && !wsUrl; i++) {
+    await new Promise((r) => setTimeout(r, 500))
+    wsUrl = await fetch(`http://127.0.0.1:${port}/json/version`).then((r) => r.json()).then((j) => j.webSocketDebuggerUrl).catch(() => null)
+  }
+  if (!wsUrl) return null
+  const ws = new WebSocket(wsUrl)
+  await new Promise((resolveOpen, rejectOpen) => {
+    ws.addEventListener('open', resolveOpen)
+    ws.addEventListener('error', rejectOpen)
+  })
+  let seq = 0
+  const pending = new Map()
+  ws.addEventListener('message', (event) => {
+    const message = JSON.parse(event.data)
+    if (!pending.has(message.id)) return
+    const { resolveCall, rejectCall } = pending.get(message.id)
+    pending.delete(message.id)
+    if (message.error) rejectCall(new Error(message.error.message))
+    else resolveCall(message.result)
+  })
+  return {
+    send: (method, params = {}) => new Promise((resolveCall, rejectCall) => {
+      pending.set(++seq, { resolveCall, rejectCall })
+      ws.send(JSON.stringify({ id: seq, method, params }))
+    }),
+    close: () => ws.close(),
+  }
+}
+
+// CDP Network.Cookie → Playwright addCookies 格式
+function toPlaywrightCookie(cookie) {
+  const out = { name: cookie.name, value: cookie.value, domain: cookie.domain, path: cookie.path, expires: cookie.session ? -1 : cookie.expires, httpOnly: cookie.httpOnly, secure: cookie.secure }
+  if (['Strict', 'Lax', 'None'].includes(cookie.sameSite)) out.sameSite = cookie.sameSite
+  return out
+}
+
+// 登录期间的定时快照：只取 cookies 和站点本域已打开页面的 localStorage。
+// 不能用 context.storageState()：它要读每个出现过的域名的 localStorage，对没有打开页面的域名会临时开页导航过去，
+// 用户一交互（验证码、第三方登录 iframe 带来新域名），登录窗口就每 2 秒被打断，看起来像页面在不停刷新。
+async function snapshotLoginState(context, conf, stateFile) {
+  const previous = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) : { origins: [] }
+  const ownPage = context.pages().find((p) => p.url().startsWith(conf.url))
+  const localStorageItems = ownPage
+    ? await ownPage.evaluate(() => Object.entries(localStorage).map(([name, value]) => ({ name, value }))).catch(() => null)
+    : null
+  const origins = localStorageItems ? [{ origin: conf.url, localStorage: localStorageItems }] : previous.origins ?? []
+  writeFileSync(stateFile, JSON.stringify({ cookies: await context.cookies(), origins }), { mode: 0o600 })
+}
+
 async function restoreCookies(context, conf) {
   const stateFile = `${conf.profile}.state.json`
   if (!existsSync(stateFile)) return
@@ -127,16 +187,70 @@ if (cmd === 'login') {
     console.log(`${name} 共用 ${conf.tokenFrom.site} 的登录态，无需单独登录：请运行 browser.mjs login --site ${conf.tokenFrom.site}（加 --force 可强制单独登录）`)
     process.exit(0)
   }
+  // 旧 profile 属于别的环境（或未标记）时先归档，否则旧 token 会让登录页无限刷新、没法操作
+  if (existsSync(conf.profile) && profileEnv(conf) !== siteEnv) {
+    const archive = join(profileRoot, `archive-${profileEnv(conf) || 'unmarked'}-${Date.now()}`)
+    mkdirSync(archive, { recursive: true })
+    renameSync(conf.profile, join(archive, name))
+    if (existsSync(`${conf.profile}.state.json`)) renameSync(`${conf.profile}.state.json`, join(archive, `${name}.state.json`))
+    console.log(`旧登录态属于 ${profileEnv(conf) || '未标记'} 环境，已移到 ${archive}`)
+  }
   mkdirSync(conf.profile, { recursive: true })
-  const context = await chromium.launchPersistentContext(conf.profile, { ...launchOptions(), headless: false, viewport: null })
-  const page = context.pages()[0] ?? (await context.newPage())
-  await page.goto(`${conf.url}${conf.loginPath}`, { timeout: 180000 }).catch(() => {})
-  console.log(`已打开 ${conf.url}${conf.loginPath}：请手动完成登录，然后关闭浏览器窗口（登录态保存在 ${conf.profile}）`)
+  writeFileSync(envMarker(conf), `${siteEnv}\n`)
   // 会话 cookie 关窗即丢，profile 存不住：登录窗口打开期间每 2 秒快照 cookies 到 state 文件，运行时再注入
   const stateFile = `${conf.profile}.state.json`
+  const loginUrl = `${conf.url}${conf.loginPath}`
+  const chromeBin = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  if (existsSync(chromeBin) && !args.includes('--automation')) {
+    // 人工登录用普通 Chrome 进程，登录期间只在浏览器级别（Storage.getCookies / Target.getTargets）读取，
+    // 不连接任何页面、不经 Playwright。实测：Playwright 启动或经 Playwright 连进页面做快照时，
+    // dev 环境的登录页会不停闪动、无法操作；普通 Chrome + 浏览器级读取则稳定。
+    // 本站 localStorage（如后台 admin_token）不在登录时读，由 check 从 profile 补进 state 文件。
+    const debugPort = 19000 + (conf.port % 1000)
+    const chrome = spawn(chromeBin, [`--user-data-dir=${conf.profile}`, `--remote-debugging-port=${debugPort}`, '--no-first-run', '--no-default-browser-check', loginUrl], { stdio: 'ignore' })
+    const cdp = await connectBrowserCdp(debugPort)
+    if (!cdp) {
+      chrome.kill()
+      throw new Error(`Chrome 调试端口 ${debugPort} 未就绪；可加 --automation 改用 Playwright 窗口登录`)
+    }
+    console.log(`已打开 ${loginUrl}：请手动完成登录，然后关闭浏览器窗口（登录态保存在 ${conf.profile}）`)
+    const previous = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) : { origins: [] }
+    const snapshot = async () => {
+      const { cookies } = await cdp.send('Storage.getCookies')
+      writeFileSync(stateFile, JSON.stringify({ cookies: cookies.map(toPlaywrightCookie), origins: previous.origins ?? [] }), { mode: 0o600 })
+    }
+    // macOS 关掉窗口后 Chrome 进程仍在：以「页面全部关闭」为结束信号，此时会话 cookie 仍在，做最后一次快照
+    await new Promise((resolveDone) => {
+      let sawPage = false
+      const timer = setInterval(async () => {
+        try {
+          const { targetInfos } = await cdp.send('Target.getTargets')
+          const pages = targetInfos.filter((t) => t.type === 'page' && !t.url.startsWith('chrome://')).length
+          if (pages) sawPage = true
+          await snapshot()
+          if (sawPage && pages === 0) {
+            clearInterval(timer)
+            resolveDone()
+          }
+        } catch {}
+      }, 2000)
+      chrome.on('exit', () => {
+        clearInterval(timer)
+        resolveDone()
+      })
+    })
+    cdp.close()
+    chrome.kill()
+    console.log('已保存。可运行 browser.mjs check --site', name)
+    process.exit(0)
+  }
+  const context = await chromium.launchPersistentContext(conf.profile, { ...launchOptions(), headless: false, viewport: null })
+  const page = context.pages()[0] ?? (await context.newPage())
+  await page.goto(loginUrl, { timeout: 180000 }).catch(() => {})
+  console.log(`已打开 ${loginUrl}：请手动完成登录，然后关闭浏览器窗口（登录态保存在 ${conf.profile}）`)
   const timer = setInterval(async () => {
     try {
-      writeFileSync(stateFile, JSON.stringify(await context.storageState()), { mode: 0o600 })
+      await snapshotLoginState(context, conf, stateFile)
     } catch {}
   }, 2000)
   await new Promise((r) => context.on('close', r))
@@ -155,6 +269,16 @@ if (cmd === 'check') {
   const page = context.pages()[0] ?? (await context.newPage())
   const ok = await isLoggedIn(page, conf)
   console.log(ok ? `✅ ${name} 登录态有效（${page.url()}）` : `❌ ${name} 登录态失效：运行 browser.mjs login --site ${name} 重新登录`)
+  // 登录时只快照了 cookies：有效时把本站 localStorage（如后台 admin_token）补进 state，供共享登录的站点读取
+  const stateFile = `${conf.profile}.state.json`
+  if (ok && !conf.tokenFrom && existsSync(stateFile) && page.url().startsWith(conf.url)) {
+    const items = await page.evaluate(() => Object.entries(localStorage).map(([key, value]) => ({ name: key, value }))).catch(() => null)
+    if (items) {
+      const state = JSON.parse(readFileSync(stateFile, 'utf8'))
+      state.origins = [{ origin: conf.url, localStorage: items }]
+      writeFileSync(stateFile, JSON.stringify(state), { mode: 0o600 })
+    }
+  }
   await context.close()
   rmSync(copy, { recursive: true, force: true })
   process.exit(ok ? 0 : 2)

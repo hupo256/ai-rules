@@ -21,12 +21,12 @@ node $S/browser.mjs check --site web     # 无头检查；失效返回码 2
 ```
 
 - 每个站点有一个专用 Chrome profile（`~/.config/prd-to-commit/browser/<site>`），由**用户手动登录一次**，脚本之后以无头方式复用。
-- 登录态按环境区分：换环境后旧登录态无效，要重新 login。
+- 登录态按环境区分：`browser-sites.json` 的 `_env` 是当前环境，每个 profile 旁边的 `<site>.env` 记录它登录时的环境。环境不符时 `check`/`run` 直接报错要求重新登录；`login` 会先把旧 profile 移到 `archive-<旧环境>-<时间戳>/` 再打开干净窗口。不能复用旧环境的 profile：旧 token 会让页面在「跳资产页 → 401 → 回登录页」之间无限刷新，人也没法操作。
 - **只需登录两次**：`web`（C 端）和 `legacy-admin`（现货后台）。`admin`（Next 后台）会自动复制 legacy-admin 的 localStorage（`admin_token`、`ADMIN_USERINFO`）；`futures-legacy-admin`（合约后台）会在页面加载前设置 `window.name = admin_token`（等价于人工在 console 里设置），都不用单独登录。
 - `apps/futures-admin` 的 Next 工程已停用，不在支持范围内。
 - check 失效时，**告诉用户运行 `node $S/browser.mjs login --site <site>` 重新登录**（这一步需要人工过验证码或 GA）。这期间先做不依赖登录的验证。
 - 不要尝试自动登录或绕过验证码。
-- 登录态的保存方式：profile 持久保存 localStorage；会话 cookie 关窗即丢，所以 login 期间每 2 秒把 cookies 快照到 `<site>.state.json`（权限 600），运行时再注入。
+- 登录窗口是**普通 Chrome 进程**（不经 Playwright 启动），login 期间只在浏览器级别（`Storage.getCookies`、`Target.getTargets`）每 2 秒把 cookies 快照到 `<site>.state.json`（权限 600），不连接任何页面。实测：Playwright 启动的窗口，或经 Playwright 连进页面做快照，都会让 dev 登录页不停闪动、无法操作。页面全部关闭即视为登录结束。本站 localStorage（如后台 `admin_token`）由 `check` 在确认有效后从 profile 补进 state 文件，所以登录后要先对 `legacy-admin` 跑一次 `check`，Next 后台和合约后台才能复用。没有本机 Chrome 时，可加 `--automation` 回退到 Playwright 窗口。
 - **登出接口（logout/login_out）一律拦截**：放行会让服务端会话失效，保存的登录态就废了。
 - check 的判定：页面没有跳到登录页，**且**配置了 `authProbe` 的站点必须观察到鉴权接口返回正常（后台用 `/operate-api/menus`，返回 10021 即为失效）。只看页面跳转会误报有效。
 
