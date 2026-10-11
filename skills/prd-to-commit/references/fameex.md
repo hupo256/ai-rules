@@ -12,7 +12,8 @@
 - 新增只有 zh-CN 的命名空间时，要登记到 `ZH_CN_SOURCE_ONLY_NAMESPACES`，否则其他语种加载会报错（PR-02463）。
 - 文案带 `& / <` 等符号又走插值时，会被 i18next 转义；能写死就写死，否则传 `interpolation: { escapeValue: false }`（PR-02306）。
 
-## MSW / 本地验证
+## MSW（仅限团队共享的手动 mock）
+- AI 自测不用 MSW：mock 写在浏览器验证 spec 里，不改业务代码（见 `references/browser.md`）。只有用户明确要求「团队成员手动点页面也要用的 mock」时才在业务仓接 MSW，下面几条是接入时的坑。
 - MSW 的 `mockServiceWorker.js` 要加进 proxy 的 `LOCALE_BYPASS_PATTERNS`，否则会被语言重定向拦掉，mock 不生效（PR-02463）。
 - 要在 `useServiceWorkerRegistration` 里放行 mockServiceWorker，不然会被当成 PWA 的 SW 注销掉。
 - 开关只认 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'`，新环境变量要登记到 turbo.json 的 globalEnv。

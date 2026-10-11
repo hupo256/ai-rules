@@ -81,7 +81,7 @@ node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID
 - 遵守全局规则和仓库 `AGENTS.md`/`CLAUDE.md`、按主题命中的 `.cursor/rules/*.mdc`、`coding-quality` skill。不需要额外读其他东西。
 - 按清单逐行实现。实现完一行，就在清单「落点文件」列填上真实路径。
 - 文案按 PRD 逐字写入，语言文件范围按仓库规则。文案里含 `&`、`/`、`<` 等符号且走 i18next 插值时，要防止被转义成 `&amp;`；能直接写进文案就不要用插值。
-- 接口未就绪时，按已知契约写好代码，在清单里标「待联调」。只有页面无法验证时才加 mock。
+- 接口未就绪时，按已知契约写好代码，在清单里标「待联调」。**自测用的 mock 只写在浏览器验证 spec 里**（`references/browser.md`），不往业务仓加 MSW handler、mock 数据文件或 `USE_MOCK` 分支；只有用户明确要求团队共享的手动 mock 时才用 MSW（`references/fameex.md`）。
 - 写操作（绑定/解绑/提交/删除/状态上报）成功后，要让依赖该数据的服务端状态刷新（React Query `invalidateQueries` 用户资料、列表等），不能只关弹窗、弹提示。
 
 ## 6. 检查（只查改动）
@@ -92,7 +92,7 @@ cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报�
 
 手动跑格式化（`biome check --write` 等）时只传本次改动的具体文件，不要传目录，否则会格式化无关文件。输出里的 `not-covered`（例如 legacy `.vue` 模板）不能算通过，要在交付说明里如实写出。
 
-**浏览器验证（改动涉及可见 UI 时必做）**：按 `references/browser.md` 用 `dev.mjs` 起固定端口的 dev server、`browser.mjs` 复用已保存的登录态跑验证 spec（接口没好就在 spec 里 mock，写操作默认拦截），逐张查看截图对照 PRD/Figma。登录态失效时请用户执行 `browser.mjs login --site <site>`，期间先做其他验证；确实跑不了的写 `not-covered: <原因>`，不要假装通过。
+**浏览器验证（改动涉及可见 UI 时必做）**：按 `references/browser.md` 用 `dev.mjs` 起固定端口的 dev server、`browser.mjs` 复用已保存的登录态跑验证 spec（接口没好就在 spec 里 mock；dev 上写操作默认真实执行，其他环境一律拦截），逐张查看截图对照 PRD/Figma。登录态失效时请用户执行 `browser.mjs login --site <site>`，期间先做其他验证；确实跑不了的写 `not-covered: <原因>`，不要假装通过。
 
 ## 7. 独立冷读（必须用子 agent，不能自查）
 
