@@ -24,6 +24,10 @@
 - Test pure/tool-shaped code by default — mappers, resolvers, formatters, calculations, state machines, contracts, meaningful branches/boundaries, regressions, cross-cutting invariants. Never write test cases for `.tsx` components — no `*.test.tsx`, no render/unit tests, no reshaping component logic for testability or mocked-call asserts; verify rendering (label/visibility/conditional) via a DOM-contract script or a real browser check.
 - Report excluded checks as `not-required`, not passed/skipped; unexecuted checks never pass.
 
+## Subagent Delegation
+
+- Decide by dependency, then workload: run sub-tasks in parallel subagents only when they touch disjoint files and need none of each other's output, and only when each clearly outweighs a fresh agent rebuilding context (a separate project, a whole page, a deep investigation); do small scattered edits yourself. Review returned diffs, not just reports.
+
 ## On-Demand Rule Loading
 
 - For non-trivial frontend work — data UI, reuse/shared props, API/schema/mapper, state derivation, forms, timers/animation, styling/visual QA, i18n — read `~/.ai-rules/skills/coding-quality/SKILL.md`, then only the routed topic reference.
