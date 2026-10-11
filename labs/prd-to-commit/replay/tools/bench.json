@@ -28,5 +28,10 @@
     "base": "03b1fef6c9",
     "prd": "~/.prd-cache/REPLAY-02172/r1341",
     "scope": "本仓前端：apps/web 与 apps/admin/legacy-admin（现货后台 Vue2）。App 不做；apps/web-next 不做。后端接口按 PRD 和仓内同类接口约定写，无法确定的按 skill 规则处理。"
+  },
+  "PR-01507": {
+    "base": "d7702e3e66",
+    "prd": "~/.prd-cache/REPLAY-01507/r6723",
+    "scope": "只做 apps/web-next 用户端：在 web-next 当全新项目重做理财（apps/web、apps/admin 中已上线的旧实现不改、不参考其 UI；接口契约只可取 apps/web/src/services/api/financeProduct.ts 与 apps/web/src/types/financeProduct.ts）。管理后台、App、平台侧与后端不做；i18n 只写 zh-CN。Figma 关键帧预览与规格在 PRD 快照目录的 figma/ 下（先读 figma/README.md）。"
   }
 }
