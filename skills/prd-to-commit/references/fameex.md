@@ -33,7 +33,7 @@
 - 浏览器验证（登录态、mock、写保护、截图）统一走 `references/browser.md` 的 `dev.mjs` + `browser.mjs`，不再手写假 token。
 
 ## 测试
-- 根 `vitest.workspace.ts` 把 `@` 指向 apps/web/src。check.mjs 会给 admin 等 app 的测试生成临时配置，自己手动跑时要注意这一点（PR-01930 v4）。
+- 根 `vitest.workspace.ts` 把 `@` 指向 apps/web/src。check.mjs 对自带 `vitest.config` 的 app（admin、futures-admin、security-admin、web-next）在 app 目录用其配置跑，其余非 web app 用临时配置改 `@`；自己手动跑时同理（PR-01930 v4、PR-01507）。测试失败时 check.mjs 会在 base 临时 worktree 复跑，base 上同样失败的标 pre-existing（PR-02463、PR-01507 各遇到 2 例存量失败）。
 
 - biome 格式化可能把存量 tsc 错误挪到「改动行」上，让 check.mjs 报失败。先确认是否存量（`git show <BASE>:<file>` 对照），是存量就做最小修复或在交付说明里注明（PR-02265 两次复现）。
 
