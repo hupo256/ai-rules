@@ -41,7 +41,12 @@
 - Next 路由参数（`params`、`useParams`、`searchParams`）运行时一律是字符串，即使类型标成 number；和接口返回的数字 id 比较前先 `Number()`（R12/R13-01947：持仓锁定永远不生效）。
 - `cn`（tailwind-merge）会把自定义字号类和颜色类当成同组冲突，吞掉其中一个（R13/R14-01947 单选字号丢失）；字号放到内层元素，或用仓内已登记的 token class。
 - 被 Server Component（layout/page）import 的 service 文件里不能出现 hooks（`useEffect`/`usePathname`），否则整页 500；hook 拆进单独的 `'use client'` 文件（R12/R13-02006）。
+- 手动 `history.replaceState/pushState` 第一个参数要传 `null`，传回 Next 自己的 state 会让 `useSearchParams` 与地址栏不同步（R13/R15-01973）。
+- futures-admin legacy 是 vue-cli 3 + webpack4，脚本不支持 `?.` / `??`（加了整个工程编译失败，R15-02265）；两个后台的 Vue 2.5/2.6 模板表达式也不支持。check.mjs 会拦，改用 `&&` 或 `== null`。
 - apps/admin 的 `PageSearchTable` 用的是全局单例 `stores/useTableStore`（zustand `create`）：同一页挂两个会互相改分页/总数，触发无限更新整页白屏（R11/R14-01988 手动平账页）。一页有两个列表时，第二个改用独立 `useQuery` + antd Table，或放进 Tabs 并 `destroyInactiveTabPane`。
+
+## 图标
+- 找图标先把 `packages/icon/output/icon.json` 的全部名字（约 314 个）列出来按形状挑，不要只按语义词搜：时钟类是 `history`、`hourglass`，没有叫 clock 的（R15/R16-02074 两次误判「图标集没有时钟」）。类名写法 `icon-[fx--<name>]`。
 
 ## git
 - 不用 `git stash`，所有 worktree 共用 stash。

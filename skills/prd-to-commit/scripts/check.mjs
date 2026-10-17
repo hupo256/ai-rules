@@ -5,6 +5,7 @@
 // - legacy Vue2/JS（biome、tsc 都不覆盖）：JS 与 .vue 的 <script> 做 ESM 语法检查；.vue 模板无编译器，报 not-covered
 // - 改动/新增的测试文件：vitest 只跑这些文件（app 有自己的 vitest.config 时在 app 目录用它跑）；
 //   有失败时自动在 base 的临时 worktree 复跑，base 上同样失败的标为 pre-existing、不算本次 FAIL
+// - 服务端组件误引 hook：rsc-hooks-check.mjs（从 app/**/page|layout 出发沿非 'use client' 模块找到改动文件里的 hook 调用）
 // - TanStack 路由（有 src/routeTree.gen.ts 的 app）：routes 有增删改名但路由树没更新时直接报出
 // usage: check.mjs [--base origin/online]   （在 worktree 根目录运行；--base 可为分支或 commit）
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -111,6 +112,16 @@ if (ruleFiles.length) {
   } else console.log('[code-rules] pass')
 }
 
+// 服务端组件误引 hook（Next App Router）：page/layout 经非 'use client' 模块引到带 hook 的改动文件，运行时整页 500，tsc 查不出（4 次回放踩到）
+if (code.length) {
+  const script = fileURLToPath(new URL('./rsc-hooks-check.mjs', import.meta.url))
+  const rsc = spawnSync('node', [script, '--base', base], { encoding: 'utf8' })
+  if (rsc.status !== 0) {
+    failed = true
+    console.log(`\n[rsc-hooks] FAIL\n${(rsc.stdout + rsc.stderr).trim()}`)
+  } else console.log(`[rsc-hooks] ${rsc.stdout.trim()}`)
+}
+
 if (legacy.length) {
   const syntaxErrors = []
   for (const file of legacy) {
@@ -120,10 +131,25 @@ if (legacy.length) {
     const result = spawnSync('node', ['--input-type=module', '--check'], { input: script, encoding: 'utf8' })
     if (result.status !== 0) syntaxErrors.push(`${file}\n${result.stderr.split('\n').slice(0, 6).join('\n')}`)
   }
+  // node 能解析不代表 legacy 构建链能编译：futures-admin（vue-cli 3 + webpack4）脚本不支持 ?. / ??；Vue 2.5/2.6 模板表达式两个后台都不支持
+  const MODERN = /\?\.(?=[\w$[(])|\?\?/
+  for (const file of legacy) {
+    const lines = changedLines(file)
+    const source = readFileSync(file, 'utf8').split('\n')
+    const tplEnd = file.endsWith('.vue') ? source.findIndex((l) => /^<\/template>/.test(l)) : -1
+    for (const n of lines) {
+      const text = (source[n - 1] ?? '').replace(/\/\/.*$/, '').replace(/<!--.*?-->/g, '')
+      if (!MODERN.test(text)) continue
+      const inTemplate = tplEnd >= 0 && n - 1 < tplEnd
+      if (inTemplate || /\/futures-admin\/legacy-admin\//.test(file)) {
+        syntaxErrors.push(`${file}:${n} ${inTemplate ? 'Vue 2 模板' : 'futures-admin legacy（vue-cli 3/webpack4）'}不支持 ?. / ??，改用 && 或 == null 判断\n  ${text.trim().slice(0, 120)}`)
+      }
+    }
+  }
   if (syntaxErrors.length) {
     failed = true
     console.log(`\n[legacy syntax] FAIL\n${syntaxErrors.join('\n')}`)
-  } else console.log(`[legacy syntax] pass (${legacy.length} files: JS + .vue <script>)`)
+  } else console.log(`[legacy syntax] pass (${legacy.length} files: JS + .vue <script>，含 ?. / ?? 构建链兼容检查)`)
   const vueFiles = legacy.filter((file) => file.endsWith('.vue'))
   console.log(`[legacy] not-covered: biome/tsc 不覆盖 legacy；${vueFiles.length} 个 .vue 模板未编译校验，需人工或浏览器核对`)
 }
