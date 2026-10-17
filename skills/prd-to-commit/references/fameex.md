@@ -37,6 +37,11 @@
 
 - biome 格式化可能把存量 tsc 错误挪到「改动行」上，让 check.mjs 报失败。先确认是否存量（`git show <BASE>:<file>` 对照），是存量就做最小修复或在交付说明里注明（PR-02265 两次复现）。
 
+## 运行时坑（tsc 查不出，浏览器验证才暴露）
+- Next 路由参数（`params`、`useParams`、`searchParams`）运行时一律是字符串，即使类型标成 number；和接口返回的数字 id 比较前先 `Number()`（R12/R13-01947：持仓锁定永远不生效）。
+- `cn`（tailwind-merge）会把自定义字号类和颜色类当成同组冲突，吞掉其中一个（R13/R14-01947 单选字号丢失）；字号放到内层元素，或用仓内已登记的 token class。
+- 被 Server Component（layout/page）import 的 service 文件里不能出现 hooks（`useEffect`/`usePathname`），否则整页 500；hook 拆进单独的 `'use client'` 文件（R12/R13-02006）。
+
 ## git
 - 不用 `git stash`，所有 worktree 共用 stash。
 - lint-staged 会对整份暂存文件跑 biome。改动文件里如果有存量 lint 问题，会把提交拦下，只修被拦的那几处，不要扩大改动。

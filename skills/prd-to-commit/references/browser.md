@@ -31,7 +31,7 @@ node $S/browser.mjs check --site web     # 无头检查，要求该站点 dev se
 - check 失效时，**告诉用户运行 `node $S/browser.mjs login --site <site>` 重新登录**（这一步需要人工过验证码或 GA）。这期间先做不依赖登录的验证。
 - 不要尝试自动登录或绕过验证码。
 - **用户不在场且登录态失效**（「直接做」、回放）：不停下等。能 mock 的页面照常验——spec 写 `export const auth = false`，把页面用到的接口（含用户信息、后台 menus/权限接口）全部写进 `mocks`；只有必须真实登录态才能出现的行为记 `not-covered: 登录态失效`。R11 回放 5 次遇到：用此法的 3 次（web 落地页、web 搜索、Next 后台 8 页）都验出了真问题，直接放弃的 2 次整段没覆盖。
-- 带假 token 时，公共接口（如 web 的 `common/*`）会返回 10002 并触发前端登出。做法：mocks 里把用户信息接口和页面用到的登录态接口写全，公共接口要么一并 mock，要么在 `auth = false` 下先访问一次拿到真实响应再写进 mocks（R12-01947）。SSR 预取的数据 mocks 拦不到，只能用 dev 真实数据，构造不了的数据态记 not-covered。
+- **需要「已登录」页面但没有登录态**（失效或偏移端口）：用 `$S/auth-fallback.mjs`，不要自己从头写。`webAuthMocks` 给出满足 apps/web schema 的用户信息、合约用户配置等用户态接口；`fakeLoginWithPublicCache(page, goto, [预热页...], { mocks })` 先匿名访问预热页缓存 dev 公共接口的真实响应，再注入假 token，之后公共接口用缓存回放、spec 的 mocks 照常生效、其余请求回 `ok(null)`（防止带假 token 打到后端返回 10002 触发登出），返回的 `unmatched` 列出被兜底的接口，页面数据不对时给它们补 mock。同一 URL 后注册的 mock 优先，所以本需求的 mock 放在 `webAuthMocks` 后面。SSR 预取的数据 mocks 拦不到，只能用 dev 真实数据，构造不了的数据态记 not-covered。已在资产页验证可用（R14）。
 - 无头模式下 HeroUI Tooltip/Popover 类下拉对 hover 不一定响应，改用 `locator.focus()` 或键盘触发（R11-01973）。
 - 登录窗口是**普通 Chrome 进程**（不经 Playwright 启动），login 期间只在浏览器级别（`Storage.getCookies`、`Target.getTargets`）每 2 秒把 cookies 快照到 `<site>.state.json`（权限 600），不连接任何页面。实测：Playwright 启动的窗口，或经 Playwright 连进页面做快照，都会让 dev 登录页不停闪动、无法操作。页面全部关闭即视为登录结束。本站 localStorage（如后台 `admin_token`）由 `check` 在确认有效后从 profile 补进 state 文件，所以登录后要先对 `legacy-admin` 跑一次 `check`，Next 后台和合约后台才能复用。没有本机 Chrome 时，可加 `--automation` 回退到 Playwright 窗口。
 - **登出接口（logout/login_out）一律拦截**：放行会让服务端会话失效，保存的登录态就废了。
