@@ -320,8 +320,17 @@ if (cmd === 'run') {
   // 2) 写保护：dev 环境（pfyys）上默认允许真实写入——dev 本来就是联调用的、数据好操作；
   //    发往其他域名（test/pre/生产）的写操作一律拦截，防止环境配错时写到不该写的地方。
   //    spec.strictWrites = true 可在 dev 上也拦截未 mock 的写；spec.allowWrites = [/regex/] 可对非 dev 域名逐条放行。
+  // 只看路径最后一段：以查询动词开头、或以查询名词结尾的算读（deposit_and_withdraw_info、getConfigCoinList、user_config）；
+  // 以写动词开头的一律算写，哪怕中间带 config（add_config_coin_sub、edit_config_coin_sub，R15-02006 曾被误放行）。
+  const isReadLikePath = (path) => {
+    const seg = path.split('/').filter(Boolean).pop() ?? ''
+    if (/^(get|query|list|search|fetch|find|check|count|stat)/i.test(seg)) return true
+    if (/(info|list|query|detail|page|count|stat|search)s?$/i.test(seg)) return true
+    if (/^(create|add|insert|update|edit|modify|delete|remove|submit|save|apply|bind|unbind|cancel|transfer|withdraw|place|mark|sync|reset|offline|enable|disable)/i.test(seg)) return false
+    return /config$/i.test(seg)
+  }
   const DEV_WRITE_HOST = /(^|\.)pfyys\.com$/i
-  const WRITE = /(create|add|insert|update|edit|modify|delete|remove|submit|save|apply|bind|unbind|invalid|cancel|transfer|withdraw|deposit|place|order\/new)/i
+  const WRITE = /(create|add|insert|update|edit|modify|delete|remove|submit|save|apply|bind|unbind|invalid|cancel|transfer|withdraw|deposit|place|order\/new|mark|sync|reset|offline|enable|disable)/i
   // 登出类接口无论如何都拦（放行会让服务端会话失效，保存的登录态就废了）
   const LOGOUT = /(log_?out|login_?out|sign_?out)/i
   await context.route(/^https?:\/\/(?!localhost)/, (route) => {
@@ -337,8 +346,7 @@ if (cmd === 'run') {
       report.realWrites.push(`${method} ${req.url()}`)
       return route.fallback()
     }
-    // 路径最后一段像查询（info/list/query/detail/get/page/count/stat）的放行，避免把 deposit_and_withdraw_info 之类误判成写
-    const readLike = /(info|list|query|detail|get|page|count|stat|config|search)[^/]*$/i.test(path)
+    const readLike = isReadLikePath(path)
     const devHost = DEV_WRITE_HOST.test(new URL(req.url()).hostname)
     if (WRITE.test(path) && !readLike && (!devHost || spec.strictWrites === true)) {
       report.blockedWrites.push(`${method} ${req.url()}`)
