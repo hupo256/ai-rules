@@ -7,6 +7,9 @@
 - Worktree 已建好（跳过 §4 脚本）：/Users/aven/github/{{RUN}}，分支 replay/{{RUN}}，base commit {{BASE}}。所有代码改动只在这个目录。check.mjs 用 `--base {{BASE}}`，冷读的 <BASE> 用 {{BASE}}。
 - 回放模式：§3 用户确认跳过（plan 照写），待确认项按你最合理的判断处理并在交付说明中列出；不 push。§10 的 stats.mjs 不用跑。
 - 范围：{{SCOPE}}
+- 快照目录下如有 inputs/（接口契约、YApi 导出等）和 figma/（先读 figma/README.md），都属于 §1 的「额外输入」，清单、编码、冷读都要引用。
+- 回放里不 cherry-pick MSW 基建（会读到 base 之后的提交，违反公平性）：接口 mock 一律写在浏览器 spec 的 mocks 里。
+- 并发约束：可能有别的回放同时在跑。`dev.mjs start` 之前先 `dev.mjs status <worktree> --site <站点>`；端口被其他 worktree 占用时不要启动（start 会把对方停掉），每 3 分钟重试一次，累计等 15 分钟仍被占就记 `not-covered: 端口被并发回放占用`。用完立即 `dev.mjs stop`。
 
 公平性约束（违反则回放作废）：
 - 不得查看 {{BASE}} 之后的任何 git 历史、其他分支或提交（不要运行 git log --all、git show <其他提交>、git branch -a 等）。

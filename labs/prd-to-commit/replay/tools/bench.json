@@ -33,5 +33,30 @@
     "base": "d7702e3e66",
     "prd": "~/.prd-cache/REPLAY-01507/r6723",
     "scope": "只做 apps/web-next 用户端：在 web-next 当全新项目重做理财（apps/web、apps/admin 中已上线的旧实现不改、不参考其 UI；接口契约只可取 apps/web/src/services/api/financeProduct.ts 与 apps/web/src/types/financeProduct.ts）。管理后台、App、平台侧与后端不做；i18n 只写 zh-CN。Figma 关键帧预览与规格在 PRD 快照目录的 figma/ 下（先读 figma/README.md）。"
+  },
+  "PR-01973": {
+    "base": "b8b5396b91",
+    "prd": "~/.prd-cache/REPLAY-01973/r20260610",
+    "scope": "只做 apps/web：TradFi 落地页 /tradfi、Header 一级导航与【合约交易】下拉 TradFi 入口（含交易页市场弹层定位 TradFi Tab）、Markets 行情页 TradFi 板块。合约管理后台、App、后端、交易页本体不做；i18n 只写 zh-CN。接口按 PRD 和 inputs/（既有 public_info 契约与样例）写，不新增接口，无法确定的按 skill 规则处理；Figma 在快照 figma/ 下（先读 figma/README.md），PRD 与 Figma 文案冲突以 PRD 为准并列待确认。"
+  },
+  "PR-02006": {
+    "base": "e90f6c63f5",
+    "prd": "~/.prd-cache/REPLAY-02006/r1809",
+    "scope": "本仓前端：apps/web（Header TradFi hover 浮层、交易页 MarketList/PairInfo、/tradfi 落地页、/markets TradFi，含 H5）与 apps/futures-admin/legacy-admin（合约后台-币种）。App、后端不做；i18n 只写 zh-CN。合约后台接口按 PRD 和 inputs/（YApi 导出）契约写；用户端 public_info 别名/语言参数无契约，无法确定的按 skill 规则处理。Figma 原型预览与规格在 PRD 快照目录的 figma/ 下（先读 figma/README.md），正式 UI 未提供。"
+  },
+  "PR-02074": {
+    "base": "e48c744565",
+    "prd": "~/.prd-cache/REPLAY-02074/r1220",
+    "scope": "只做 apps/web：在已有的预测市场一期（apps/web/src/apps/Prediction）上做三期——四大分类、搜索、联想和更多结果页，以及翻译字段的展示。apps/web-next（不做迁移）、App、后端都不做；i18n 只写 zh-CN。接口按 PRD 和 inputs/PR-02074-Web端接口文档.md 写，一期接口以起点的 services/api/prediction 为准，无法确定的按 skill 规则处理。视觉以 PRD 截图（media/）为准，Figma 部分帧在快照 figma/ 下（先读 figma/README.md）。"
+  },
+  "PR-01947": {
+    "base": "a86ceacb52",
+    "prd": "~/.prd-cache/REPLAY-01947/r3905",
+    "scope": "本仓前端：apps/web（跟单设置 PC 端，三种跟单模式）与 apps/futures-admin/legacy-admin（合约后台 Vue2：KOL 列表、跟单者相关展示）。App、后端和 apps/web-next 不做；滑点与通知（删除线 / 拆需求）不做；i18n 只写 zh-CN。接口按 PRD 和 inputs/（YApi Cat 1489 契约）写，无法确定的按 skill 规则处理。Figma 在快照 figma/ 下（先读 figma/README.md；设计稿里的最大交易滑点与底部提示文案以 PRD 为准不做）。"
+  },
+  "PR-01988": {
+    "base": "3c50f7f2c2",
+    "prd": "~/.prd-cache/REPLAY-01988/r1838",
+    "scope": "本仓前端：apps/admin（Next 后台，新增预测市场 8 个页面）+ apps/web（仅预测市场前端埋点）。legacy-admin 菜单搬迁、App、服务端埋点和后端不做；不为本地跑通去改全局菜单/登录/next.config 等共享配置；i18n 只写 zh-CN。接口按 PRD 和 inputs/ 的 YApi 契约（2026-06-25，32 个接口）写，契约里没有的按 skill 规则处理（待确认/blocker）。无 Figma；截图在 media/，原型 html 和说明在 figma/（先读 figma/README.md），截图/原型与正文删除线冲突时以正文为准。"
   }
 }
