@@ -3,6 +3,8 @@
 - Keep raw DTOs out of components; map external data through schema, mapper, selector, or explicit narrowing before rendering.
 - Mock data must pass the same schema/mapper/UI type path as real API data.
 - Keep one-source mapper fields aligned with API names even after type/format conversion or source disambiguation. Rename only for real cross-source unification or multi-field semantic derivation, and record the source fields.
+  - Pass-through is the default so the object matches the API doc and the Network panel while debugging. Allowed: case-only conversion (`expires_in` -> `expiresIn`). Allowed rename: aggregation across sources (`user_id` / `hichat_id` / `xxx_id` -> `uid`).
+  - Anti-example: renaming `live_token` -> `token` and `token` -> `portalToken` so a portal response fits the php session shape — the same word now means opposite things in two paths. Instead keep `{ source: "portal", response }` raw and, at the one place that writes storage, do `writeToken(response.live_token) // contract §2.2: live_token is for PHP APIs`.
 - Avoid fake contract fields: if UI needs data that the API does not provide, show an explicit empty marker or document the missing field instead of inventing fallbacks.
 - Treat `schema.parse(x) as T` as a red flag because the parse may strip undeclared fields while the cast hides the mismatch.
 
