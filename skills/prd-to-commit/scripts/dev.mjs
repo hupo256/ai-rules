@@ -64,6 +64,11 @@ if (pidOnPort().length) {
     console.log(`already running: ${url}${conf.basePath}  (worktree ${worktree})`)
     process.exit(0)
   }
+  // --no-steal：多个会话并发验证时，不停掉别人的 dev server，交给调用方稍后重试
+  if (rest.includes('--no-steal')) {
+    console.log(`busy: ${url} 正被 ${state?.worktree ?? '未知 worktree'} 占用（--no-steal，未启动）`)
+    process.exit(4)
+  }
   for (const pid of pidOnPort()) process.kill(Number(pid), 'SIGTERM')
   await new Promise((r) => setTimeout(r, 2000))
 }
