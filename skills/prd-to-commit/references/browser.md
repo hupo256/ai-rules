@@ -76,7 +76,7 @@ node $S/browser.mjs run ~/.prd-cache/<ID>/browser-specs/<名字>.mjs --id <ID> [
 
 - 清单里每个「页面/入口」行至少一个 step：能进入、关键文案逐字出现、PRD 写明的交互（弹窗、校验提示、禁用态、空态/错误态）。
 - 状态类需求用 mocks 构造各个数据态（如预热中/进行中/已结束、有数据/空/接口失败）分别截图。
-- **逐张查看截图**（Claude 用 Read 读 png），对照 PRD 图片和 Figma 检查布局、文案、显隐。看到问题算 MISMATCH，修完重跑。
+- **截图按需看**（Claude 用 Read 读 png）：每个页面/状态看 1 张对照 PRD 图片和 Figma 检查布局，失败步骤必看；文案、显隐、禁用态用 `expectText` / locator 断言判，不靠看图。每张截图约 1.5K token 且之后每轮都要背着（R13 浏览器子 agent 逐张看、3 轮重跑，上下文涨到 337K、28M）。看到问题算 MISMATCH；修完重跑只看 `report.md` 的通过/失败与 pageerror，修的是视觉问题才再看对应截图。
 - `report.md` 里的页面报错（pageerror）和本次改动相关的失败请求必须处理或说明原因。
 
 ## 5. 交付说明里写
