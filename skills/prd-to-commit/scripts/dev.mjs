@@ -14,12 +14,14 @@ if (!['start', 'stop', 'status'].includes(cmd) || !worktreeArg) {
   process.exit(1)
 }
 const sites = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'browser-sites.json'), 'utf8'))
-const conf = sites[site]
+// P2C_PORT_OFFSET：并发回放各用一组端口（登录态按 origin 保存，偏移后的端口没有登录态，只适合 auth=false + mock 的 spec）
+const portOffset = Number(process.env.P2C_PORT_OFFSET || 0)
+const conf = sites[site] && { ...sites[site], port: sites[site].port + portOffset }
 if (!conf) throw new Error(`未知站点 ${site}，可选：${Object.keys(sites).filter((k) => !k.startsWith('_')).join(', ')}`)
 const worktree = resolve(worktreeArg)
 const stateDir = join(homedir(), '.config', 'prd-to-commit', 'dev')
 mkdirSync(stateDir, { recursive: true })
-const stateFile = join(stateDir, `${site}.json`)
+const stateFile = join(stateDir, portOffset ? `${site}-${conf.port}.json` : `${site}.json`)
 const url = `http://localhost:${conf.port}`
 
 const pidOnPort = () => {
@@ -76,7 +78,7 @@ if (conf.install && !existsSync(join(appDir, 'node_modules'))) {
   console.log(`installing deps for ${site} (${conf.install}) ...`)
   execSync(conf.install, { cwd: appDir, stdio: 'inherit' })
 }
-const log = join(stateDir, `${site}.log`)
+const log = join(stateDir, portOffset ? `${site}-${conf.port}.log` : `${site}.log`)
 const child = spawn('sh', ['-c', conf.start.replaceAll('{port}', String(conf.port))], {
   cwd: appDir, detached: true, stdio: ['ignore', openSync(log, 'w'), openSync(log, 'a')],
   env: { ...process.env, BROWSER: 'none' },

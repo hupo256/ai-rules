@@ -15,7 +15,7 @@ description: 只给 PRD（Lark 链接或正文）+ 项目号时，从拉 PRD 到
 node $S/fetch-prd.mjs <ID> <lark-url>          # → ~/.prd-cache/<ID>/r<rev>/{prd.md,prd.xml,media/,sheets/,meta.json}
 ```
 
-- 完整读 `prd.md`。图片（`media/`、Figma 预览）先派 1 个子 agent 逐张转写到 `~/.prd-cache/<ID>/media-notes.md`：每张写对应 PRD 位置、页面/状态、**全部可见文字逐字**、红框/标注、与正文的冲突。主会话读 notes 建清单，编码某页面 UI 时再看对应原图（主会话上下文越长每轮越贵）。之后只在疑点处回查本地文件，不重拉。
+- 完整读 `prd.md`。图片（`media/`、Figma 预览）先派 1 个子 agent 逐张转写到 `~/.prd-cache/<ID>/media-notes.md`：每张写对应 PRD 位置、页面/状态、**全部可见文字逐字**、红框/标注、与正文的冲突。主会话读 notes 建清单，编码某页面 UI 时再看对应原图。之后只在疑点处回查本地文件，不重拉。
 - 内嵌表格会自动导出到 `sheets/`，并在 prd.md 里原位展开成 csv 块，要和正文一起读完。`meta.json.unexpanded` 列出的多维表格、iframe 等需要人工查看。
 - `meta.json.failed` 非空或有 Figma/原型链接读不到：告诉用户缺什么，然后继续其余部分。
 - 用户另外给的输入（接口契约、YApi 导出、附件、Figma 链接）存到 `~/.prd-cache/<ID>/inputs/`，清单、编码和冷读都要引用。
@@ -63,7 +63,7 @@ node $S/fetch-prd.mjs <ID> <lark-url>          # → ~/.prd-cache/<ID>/r<rev>/{p
 - **值不值得派看工作量**：可并行的批次里，只派工作量明显大于子 agent 重建上下文成本的（如另一个工程、独立页面）；零散小改动（加枚举项、文案 key）主会话顺手写，派出去回放实测 token 翻倍、墙钟不降。没有值得派的就全程串行。
 - **值得派的有 ≥2 批时**，主会话只做批次 0、合并和验证，不写大段 UI（主会话上下文越长每轮越贵）；只有 1 批时派它出去，主会话写主线。
 - **派子 agent 时**：每步一个，给它清单行原文、可写文件清单（越界只读）、契约文件路径、§5 编码规则；不跑 git、不跑全量检查，返回改了哪些文件和未决问题。共享组件写明只允许做什么（如「只加可选 prop」）。这一批都返回后**逐个看 diff 合并**（报告可能与改动不一致），再开下一批。
-- 冷读默认在前台运行并等待结果（§6 静态检查通过后立即开始）。只有主会话确有不改代码的事要并行做（如浏览器核对）、且确定能收到后台通知时才放后台。**冷读结果回来之前不能进入 §8/§9，也不能结束或交回任务**。
+- §6 静态检查通过后，**冷读子 agent 与浏览器子 agent 同时派出**（两者都不改业务代码），等两者都返回再进入 §8；**结果回来之前不能进入 §8/§9，也不能结束或交回任务**。
 
 在 `~/.prd-cache/<ID>/run-log.md` 记下每批的起止时间、返工原因和意外，供事后复盘。
 
@@ -96,7 +96,7 @@ cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报�
 
 手动跑格式化（`biome check --write` 等）时只传本次改动的具体文件，不要传目录，否则会格式化无关文件。输出里的 `not-covered`（例如 legacy `.vue` 模板）不能算通过，要在交付说明里如实写出。
 
-**浏览器验证（改动涉及可见 UI 时必做）**：按 `references/browser.md` 用 `dev.mjs` 起固定端口的 dev server、`browser.mjs` 复用已保存的登录态跑验证 spec（接口没好就在 spec 里 mock；dev 上写操作默认真实执行，其他环境一律拦截），逐张查看截图对照 PRD/Figma。登录态仍未就绪（见 §4）时先做其他验证；确实跑不了的写 `not-covered: <原因>`，不要假装通过。
+**浏览器验证（改动涉及可见 UI 时必做）交给 1 个浏览器子 agent**（主会话此时上下文最长，浏览器调用和截图背在它身上最贵）：给它清单、`media-notes.md`、`git diff <BASE>` 命令、`references/browser.md`，要它按清单每个页面/入口写 spec、用 `dev.mjs`/`browser.mjs` 跑（接口没好就在 spec 里 mock）、逐张看截图对照 PRD/Figma，返回问题列表、spec 路径和 not-covered 项，不改业务代码。§8 修完后用 SendMessage 让**同一个**子 agent 重跑受影响的 spec（tsc 查不出的运行时错误靠这一步抓）。确实跑不了的写 `not-covered: <原因>`，不要假装通过。
 
 ## 7. 独立冷读（必须用子 agent，不能自查）
 

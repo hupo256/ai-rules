@@ -42,7 +42,8 @@ function loadPlaywright() {
 function siteConf(name) {
   const conf = sites[name]
   if (!conf) throw new Error(`未知站点 ${name}`)
-  return { ...conf, url: `http://localhost:${conf.port}`, profile: join(profileRoot, name) }
+  const port = conf.port + Number(process.env.P2C_PORT_OFFSET || 0) // 与 dev.mjs 相同的偏移
+  return { ...conf, port, url: `http://localhost:${port}`, profile: join(profileRoot, name) }
 }
 
 // 无头运行用 profile 副本，避免锁冲突，也允许并行
