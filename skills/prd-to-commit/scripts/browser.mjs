@@ -262,6 +262,12 @@ if (cmd === 'login') {
 if (cmd === 'check') {
   const name = opt('--site', 'web')
   const conf = { ...siteConf(name), name }
+  // 登录态只能对着本地 dev server 判定；没起时给出可操作的提示，而不是抛 ERR_CONNECTION_REFUSED 堆栈
+  const reachable = await fetch(conf.url, { redirect: 'manual' }).then(() => true, () => false)
+  if (!reachable) {
+    console.log(`⚠️ ${name} 的 dev server（${conf.url}）未启动：先运行 dev.mjs start <worktree> --site ${name}，再 check`)
+    process.exit(3)
+  }
   const copy = profileCopy(conf)
   const context = await chromium.launchPersistentContext(copy, { ...launchOptions(), headless: true })
   await restoreCookies(context, conf)

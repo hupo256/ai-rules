@@ -18,7 +18,7 @@ node $S/dev.mjs stop ~/github/<ID> --site web           # 交付后停掉
 ## 2. 登录态
 
 ```bash
-node $S/browser.mjs check --site web     # 无头检查；失效返回码 2
+node $S/browser.mjs check --site web     # 无头检查，要求该站点 dev server 已启动；失效返回 2，dev server 未起返回 3
 ```
 
 - **尽早检查**：§4 建好 worktree 后，就对本需求会验证的站点逐个跑 `check`（还没登录过的站点会直接报「还没登录过」）。失效或从未登录时，立刻请用户执行 `login`，并在同一条消息里说明编码会继续进行；不要等到 §6 才发现。「直接做」模式下用户往往不在场，越晚提越可能整段 not-covered（PR-02463 只能改用假 token，PR-01507 登录后的 spec 全部没跑）。
