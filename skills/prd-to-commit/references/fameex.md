@@ -20,7 +20,7 @@
 
 ## i18n
 - Web 只改 zh-CN（`AGENTS.md:31`）。
-- 新增只有 zh-CN 的命名空间时，要登记到 `ZH_CN_SOURCE_ONLY_NAMESPACES`，否则其他语种加载会报错（PR-02463）。
+- 新增只有 zh-CN 的命名空间时，要登记到 `ZH_CN_SOURCE_ONLY_NAMESPACES`，否则其他语种加载会报错（PR-02463）。先 grep 确认这个机制存在；不存在（较旧的代码）就把 key 放进已有命名空间，不新建（R11-01973）。
 - 文案带 `& / <` 等符号又走插值时，会被 i18next 转义；能写死就写死，否则传 `interpolation: { escapeValue: false }`（PR-02306）。
 
 ## MSW（接口未就绪时写全 UI/UX）
