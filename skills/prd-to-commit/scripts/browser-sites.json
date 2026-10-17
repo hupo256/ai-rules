@@ -4,7 +4,7 @@
   "web": {
     "app": "apps/web",
     "port": 4710,
-    "start": "PORT={port} pnpm dev",
+    "start": "PORT={port} pnpm dev -p {port}",
     "basePath": "/zh-CN",
     "loginPath": "/zh-CN/login",
     "authCheckPath": "/zh-CN/assets",
