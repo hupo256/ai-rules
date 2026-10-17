@@ -41,6 +41,7 @@
 - Next 路由参数（`params`、`useParams`、`searchParams`）运行时一律是字符串，即使类型标成 number；和接口返回的数字 id 比较前先 `Number()`（R12/R13-01947：持仓锁定永远不生效）。
 - `cn`（tailwind-merge）会把自定义字号类和颜色类当成同组冲突，吞掉其中一个（R13/R14-01947 单选字号丢失）；字号放到内层元素，或用仓内已登记的 token class。
 - 被 Server Component（layout/page）import 的 service 文件里不能出现 hooks（`useEffect`/`usePathname`），否则整页 500；hook 拆进单独的 `'use client'` 文件（R12/R13-02006）。
+- apps/admin 的 `PageSearchTable` 用的是全局单例 `stores/useTableStore`（zustand `create`）：同一页挂两个会互相改分页/总数，触发无限更新整页白屏（R11/R14-01988 手动平账页）。一页有两个列表时，第二个改用独立 `useQuery` + antd Table，或放进 Tabs 并 `destroyInactiveTabPane`。
 
 ## git
 - 不用 `git stash`，所有 worktree 共用 stash。
