@@ -16,4 +16,4 @@
 - 不得读取 /Users/aven/.ai-rules/labs（回放基准与评分标准）、/Users/aven/github/docs_tdd、/Users/aven/github/auto_pilot、/Users/aven/github/fameex-web（主仓工作区）、其他 ~/github/REPLAY-* 或 PR-* 目录，以及 ~/.prd-cache 下除 {{RUN}} 以外的目录。
 - 只用 PRD 原文和 worktree 中的代码。冷读子代理的提示里也要带上这些约束（填进 <额外约束>）。
 
-完成后把交付说明同时写入 /tmp/p2c-bench/{{RUN}}.out，并输出：提交 SHA 与改动文件列表；清单要点与待确认/待联调；冷读各轮发现与处理；check.mjs 输出摘要（含 not-covered）；skill 哪里不清楚或多余（简短）。
+完成后把交付说明同时写入 ~/.prd-cache/_bench/{{RUN}}.out，并输出：提交 SHA 与改动文件列表；清单要点与待确认/待联调；冷读各轮发现与处理；check.mjs 输出摘要（含 not-covered）；skill 哪里不清楚或多余（简短）。
