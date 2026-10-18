@@ -88,7 +88,7 @@ node $S/browser.mjs run ~/.prd-cache/<ID>/browser-specs/<名字>.mjs --id <ID> [
 ## 6. 已知限制
 
 - **dev 环境的 posthog 在发送前丢弃事件**：埋点属性在浏览器里验不到，只能看事件名顺序；埋点靠纯函数单测覆盖，浏览器记 `not-required`（R11-01988、R15-02022）。
-- **依赖被提升导致 dev 起不来**（如根 `node_modules/@heroui/react` 被提升成 web-next 的 3.2.0，apps/web 整站 500）：用 APFS 克隆一份副本（`cp -c -R <worktree> /tmp/p2c-shadow/<ID>`），只在副本里改软链验证，验证后 `diff -r` 核对 src 一致；不改 worktree（R12/R15-02306）。
+- **依赖被提升导致 dev 起不来**（如根 `node_modules/@heroui/react` 被提升成 web-next 的 3.2.0，apps/web 整站 500）：用 APFS 克隆一份副本（`cp -c -R <worktree> /tmp/p2c-shadow/<ID>`），只在副本里改软链验证：副本里先删 `.git`（防误提交），修复改回 worktree 后用 `rsync -a --delete <worktree>/apps/<app>/src/ <副本>/apps/<app>/src/` 同步再重跑；验证后 `diff -r` 核对 src 一致并删除副本；`dev.mjs status` 此时显示的是副本路径。不改 worktree 的依赖（R12/R15/R17-02306）。
 - **既有 pageerror 的归因**：拿 base 上的同一页面对照一次即可，不要为此多写探针 spec（R16-02074）。
 
 - **Codex CLI 沙箱禁止监听端口（EPERM）**：Codex 下由编排方，或者在沙箱外执行 `dev.mjs start`，Codex 只负责写 spec 和跑 `browser.mjs run`。用 Codex 桌面 App 没有这个限制。
