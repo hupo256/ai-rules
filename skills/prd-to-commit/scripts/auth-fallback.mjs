@@ -29,8 +29,16 @@ export const webContractUserConfig = (openContract = 1) => ({
   authLevel: 2, over500xWhite: 0, priceBasis: 0, externalMaker: 0, marketStp: 0,
 })
 
+// 新代码用 zCamel 把 snake_case 转成 camelCase 再解析，旧起点直接按 camelCase 解析：两种键名都给，哪种都能过（R17-02306 报旧起点整包 ZodError）
+const withCamel = (obj) => Object.fromEntries(Object.entries(obj).flatMap(([k, v]) => {
+  const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+  const val = v && typeof v === 'object' && !Array.isArray(v) ? withCamel(v) : v
+  return camel === k ? [[k, val]] : [[k, val], [camel, val]]
+}))
+export const webUserInfoBothCases = withCamel(webUserInfo)
+
 export const webAuthMocks = [
-  { url: /\/fe-ex-api\/common\/user_info_v1/, json: ok(webUserInfo) },
+  { url: /\/fe-ex-api\/common\/user_info_v1/, json: ok(webUserInfoBothCases) },
   { url: /\/fe-ex-api\/finance\//, json: ok(null) },
   { url: /\/fe-ex-api\/message\//, json: ok(0) },
   { url: /\/fe-ex-api\/reward_center_info/, json: ok(null) },
