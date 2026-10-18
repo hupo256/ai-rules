@@ -14,6 +14,7 @@ node $S/dev.mjs stop ~/github/<ID> --site web           # 交付后停掉
 - 端口固定，因为登录态按 origin 保存。同一站点同时只跑一个 dev server，启动时会自动停掉其他 worktree 占用的同端口进程。
 - **所有站点统一连 dev 环境（pfyys）**：开发期接口先发 dev，在 dev 联调完才上 test，dev 上的数据也更好操作。Next 站点用仓库的 `.env.dev`（等同 `pnpm dev`）；legacy 工程的仓库代理本来就指向 pfyys，以 `--mode dev` 启动。`scripts/legacy-vue.config.cjs` 只用来关掉自动打开浏览器；确需临时连别的环境时，在启动命令前加 `P2C_PROXY_FROM=pfyys.com P2C_PROXY_TO=<目标域名>`，不改仓库文件。legacy 第一次启动时会自动 `npm install`。
 - 多个站点可以同时运行（端口各不相同），按需启动即可。
+- **全机限流**：`dev.mjs start` 会检查整台机器上由它启动且仍在监听的 dev server，达到 `P2C_MAX_DEV`（默认 2）就每 30 秒重试、最多等 `P2C_DEV_WAIT_MIN`（默认 40）分钟，超时返回 5。16G 内存的机器上 3 个以上 Next dev 同时冷启动会卡死（2026-10-18 三次强制重启）；不要绕过它手动起 `next dev`。
 - 多个会话同时验证同一站点：各自在命令前加不同的 `P2C_PORT_OFFSET=<n>`（dev.mjs 与 browser.mjs 都认，端口 = 原端口 + n；偏移端口没有登录态，只适合 `auth = false` + mocks），或加 `--no-steal`：端口被别的 worktree 占用就返回 4、不启动（默认会停掉对方）。等待期间先做冷读、写 spec。
 
 ## 2. 登录态

@@ -9,7 +9,7 @@
 - 范围：{{SCOPE}}
 - 快照目录下如有 inputs/（接口契约、YApi 导出等）和 figma/（先读 figma/README.md），都属于 §1 的「额外输入」，清单、编码、冷读都要引用。
 - 回放里不 cherry-pick MSW 基建（会读到 base 之后的提交，违反公平性）：接口 mock 一律写在浏览器 spec 的 mocks 里。
-- 并发约束：可能有别的回放同时在跑。所有 `dev.mjs`/`browser.mjs` 命令前加 `P2C_PORT_OFFSET={{OFFSET}}`（本回放专用端口；偏移端口没有登录态，spec 用 `auth = false` + mocks），`dev.mjs start` 一律带 `--no-steal`（端口被占时返回 4、不启动，不会停掉对方）；返回 4 时先做不依赖浏览器的事（冷读、写 spec），每 3 分钟重试一次，累计等 15 分钟仍被占就记 `not-covered: 端口被并发回放占用`。用完立即 `dev.mjs stop`。本机资源有限（8 核 17G，多个回放并发）：本回放同时最多起 2 个 dev server，换站点前先 stop 上一个。
+- 并发约束：可能有别的回放同时在跑。所有 `dev.mjs`/`browser.mjs` 命令前加 `P2C_PORT_OFFSET={{OFFSET}}`（本回放专用端口；偏移端口没有登录态，spec 用 `auth = false` + mocks），`dev.mjs start` 一律带 `--no-steal`（端口被占时返回 4、不启动，不会停掉对方）；返回 4 时先做不依赖浏览器的事（冷读、写 spec），每 3 分钟重试一次，累计等 15 分钟仍被占就记 `not-covered: 端口被并发回放占用`。用完立即 `dev.mjs stop`。本机资源有限（8 核 17G，多个回放并发）：本回放同时最多起 1 个 dev server，换站点前先 stop 上一个；dev.mjs 还会全机限流（整机最多 2 个），输出 `waiting-slot` 时它在排队，等着即可，不要绕过、不要手动 `next dev`。
 
 公平性约束（违反则回放作废）：
 - 不得查看 {{BASE}} 之后的任何 git 历史、其他分支或提交（不要运行 git log --all、git show <其他提交>、git branch -a 等）。
