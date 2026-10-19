@@ -81,10 +81,11 @@ node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID
 ## 5. 编码
 
 - 按 §3.5 的批次推进：批次 0 主会话自己写；后续批次按 §3.5 判定值得派的才派子 agent，其余主会话串行写，派出时主会话负责合并和对齐契约。
-- 遵守全局规则和仓库 `AGENTS.md`/`CLAUDE.md`、按主题命中的 `.cursor/rules/*.mdc`、`coding-quality` skill。不需要额外读其他东西。
+- 遵守全局规则和仓库 `AGENTS.md`/`CLAUDE.md`、按主题命中的 `.cursor/rules/*.mdc`、`coding-quality` skill。
 - 按清单逐行实现，实现完一行就填上真实落点。
 - 文案按 PRD 逐字写入，语言文件范围按仓库规则。含 `&`、`/`、`<` 的文案能直接写就不走插值（会被转义成 `&amp;`）。
-- 接口未就绪时按已知契约写好代码，清单标「待联调」，并**自行决定**加最小 MSW mock 把 UI/UX 写全：只为本需求新增/变更的接口写 handler 和 fixture（`src/mocks/<功能>/`，仅 `NEXT_PUBLIC_ENABLE_MSW=true` 生效，业务代码无 mock 分支）。未接入的 app 按 `references/fameex.md` 单独提交补齐（legacy 不接）；接口上 dev 就删 handler，基建保留。边缘数据态（空、报错、极端值）写在浏览器 spec 的 mocks 里。
+- 接口未就绪时按已知契约写好代码，清单标「待联调」，并**自行决定**加最小 MSW mock 把 UI/UX 写全：只为本需求新增/变更的接口写 handler 和 fixture（`src/mocks/<功能>/`，仅 `NEXT_PUBLIC_ENABLE_MSW=true` 生效，业务代码无 mock 分支）。未接入的 app 按 `references/fameex.md` 单独提交补齐（legacy 不接）；接口上 dev 就删 handler，基建保留。边缘数据态写在浏览器 spec 的 mocks 里。
+- PRD 要求埋点时，事件参数（步骤序号、来源页等）由纯函数算出并单测断言取值（浏览器验不到埋点）。
 - 写操作（绑定/解绑/提交/删除/状态上报）成功后，要让依赖该数据的服务端状态刷新（React Query `invalidateQueries` 用户资料、列表等），不能只关弹窗、弹提示。
 
 ## 6. 检查（只查改动）
@@ -95,7 +96,7 @@ cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报�
 
 手动格式化（`biome check --write`）只传本次改动的文件，不传目录。`not-covered`（如 legacy `.vue` 模板）不算通过，交付说明如实写出。
 
-**浏览器验证（改动涉及可见 UI 时必做）交给 1 个浏览器子 agent**：给它清单、`media-notes.md`、`git diff <BASE>`、`references/browser.md`，要它按清单每个页面/入口写 spec 跑（接口没好就在 spec 里 mock），返回问题列表、spec 路径和 not-covered 项，不改业务代码；截图只看视觉相关步骤（每个页面状态 1 张、失败步骤必看），文案/显隐用 `expectText` 等断言判。§8 修完后用 SendMessage 让**同一个**子 agent 重跑受影响的 spec，只看 report 的通过/失败与 pageerror（抓运行时错误）。跑不了的写 `not-covered: <原因>`，不假装通过。
+**浏览器验证（改动涉及可见 UI 时必做）交给 1 个浏览器子 agent**：给它清单、`media-notes.md`、`git diff <BASE>`、`references/browser.md`，要它按清单每个页面/入口写 spec 跑（接口没好就在 spec 里 mock），返回问题列表、spec 路径和 not-covered 项，不改业务代码；截图只看视觉相关步骤（每个页面状态 1 张、失败步骤必看），文案/显隐用 `expectText` 等断言判。§8 修完后用 SendMessage 让**同一个**子 agent 重跑受影响的 spec，只看 report 的通过/失败与 pageerror。跑不了的写 `not-covered: <原因>`，不假装通过。
 
 ## 7. 独立冷读（必须用子 agent，不能自查）
 
@@ -119,7 +120,7 @@ cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报�
 
 ## 8. 修复（最多 2 轮）
 
-逐条处理 MISSING/SIBLING-MISSED/MISMATCH：修复，或给出理由（后端原因、PRD 明确不做）。**PRD 正文明确要求的改动，不因冷读的顾虑撤回或降级为 blocker**：实现保留，顾虑列待确认；只有确实缺数据且 schema 里也没有现成字段时才列 blocker。**同因** = 本需求涉及的同一业务对象/字段在其他页面、入口、拷贝里的呈现，必须一起改；**范围外** = 本需求没涉及的其他对象/渠道/类型的已有行为被连带改变，或新功能被泛化到它们身上（如只为 TradFi 做的 Tab 变成遍历全部板块），默认收窄（PRD 明确要求统一才保留）。同因扩展找不到口径依据时不做，列待确认。修完重跑 §6。**第 1 轮修过 MISSING/SIBLING-MISSED，或修复改了 3 个以上文件**，才冷读第 2 轮，否则主会话逐条核对并在 run-log 记一笔。第 2 轮提示附第 1 轮问题与处理结论，只复核修复、新增 diff 与「保留」理由。第 2 轮报出的问题主会话直接修（运行时问题让浏览器子 agent 重跑确认），仍有问题交给用户，不再空转。
+逐条处理 MISSING/SIBLING-MISSED/MISMATCH：修复，或给出理由（后端原因、PRD 明确不做）。**PRD 正文明确要求的改动，不因冷读的顾虑撤回或降级为 blocker**：实现保留，顾虑列待确认；确实缺数据且 schema 无现成字段才列 blocker。**同因** = 同一业务对象/字段在其他页面、入口、拷贝里的呈现，必须一起改；**范围外** = 本需求没涉及的其他对象/渠道/类型的已有行为被连带改变，或新功能被泛化到它们身上（如只为 TradFi 做的 Tab 变成遍历全部板块），默认收窄（PRD 要求统一才保留）。同因扩展找不到口径依据时不做，列待确认。修完重跑 §6。**第 1 轮修过 MISSING/SIBLING-MISSED，或修复改了 ≥3 个业务文件（不含测试）**，才冷读第 2 轮，否则主会话逐条核对并在 run-log 记一笔。第 2 轮提示附第 1 轮问题与处理结论，只复核修复、新增 diff 与「保留」理由。第 2 轮的问题主会话直接修（运行时问题让浏览器子 agent 重跑），仍有问题交给用户。
 
 ## 9. 提交
 
