@@ -72,7 +72,14 @@ for (const app of readdirSync(join(root, 'apps'))) {
   }
 }
 
-const uniq = new Map(problems.map((p) => [p.file, p]))
+// 起点版本里同一文件已经调用 hook（存量引用链，本次没新引入）→ 记 pre-existing，不算 FAIL（R17-01973 误报 markets/layout → public-info）
+const stripComments = (code) => code.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '')
+const baseHasHook = (file) => {
+  try { return HOOK.test(stripComments(execFileSync('git', ['show', `${mergeBase}:${relative(root, file)}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))) } catch { return false }
+}
+const preExisting = problems.filter((p) => baseHasHook(p.file))
+for (const p of preExisting) console.log(`rsc-hooks: pre-existing（起点已有，不计 FAIL）${relative(root, p.file)}`)
+const uniq = new Map(problems.filter((p) => !baseHasHook(p.file)).map((p) => [p.file, p]))
 if (!uniq.size) {
   console.log('rsc-hooks: pass（服务端入口可达的改动文件里没有 hook 调用）')
 } else {
