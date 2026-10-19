@@ -57,7 +57,8 @@ worktree `~/github/<RUN>`，过程文件 `~/.prd-cache/<RUN>/`（run-log.md 末�
 1. mac 卡死根因是同时冷启动多个 Next dev（16G）：dev.mjs 全机上限（当前 4，看门狗脚本 `~/.prd-cache/_bench/mem-watchdog.sh` 可在内存 <15% 时降到 2，暂停时已停）。
 2. /tmp 会被重启清空：工作目录在 `~/.prd-cache/_bench`。
 3. **中断续跑的回放结果不可信**（R17-02022 9/12→R18 12/12；R17-02306 6/7→R18 7/7），放行判定以干净跑为准。
-4. 共享文件混入纯格式化改动（01973、01947 各 1 次）：来自仓库 Husky/Biome 提交钩子，不是 skill 能管的，仅观察。
+4. **暂停时停掉回放 agent 不会连带停掉它派出的浏览器子 agent**（它们会重新起 dev server）：要用 ListAgents 找出仍在 running 的子 agent 逐个 TaskStop，再 `dev.mjs stop`（带对应 P2C_PORT_OFFSET）并 `pgrep -fl "next dev|chrome-headless"` 确认为 0。
+5. 共享文件混入纯格式化改动（01973、01947 各 1 次）：来自仓库 Husky/Biome 提交钩子，不是 skill 能管的，仅观察。
 
 ## 4. 恢复步骤
 
