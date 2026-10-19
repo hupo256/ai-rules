@@ -2,7 +2,7 @@
 // 在 worktree 里按固定端口启动/停止/查看本地 dev server（站点配置见 browser-sites.json）。
 // usage: dev.mjs start|stop|status <worktree-path> --site web|admin|futures-admin|legacy-admin|futures-legacy-admin
 import { execSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -50,9 +50,42 @@ if (cmd === 'status') {
   process.exit(0)
 }
 
+// public-hoist-pattern 把 @heroui/* 提升到根，新 worktree 可能提升成 web-next 的 3.x，apps/web 整站 500（R12/R15/R17-02172/R18-02306）。
+// start 时把根软链临时指向本 app 声明的版本，stop 时还原；只动 node_modules 软链，不碰受跟踪文件。
+const hoistLink = join(worktree, 'node_modules', '@heroui', 'react')
+const hoistBackup = join(stateDir, `${site}-${conf.port}.hoist`)
+function fixHoist() {
+  try {
+    const want = JSON.parse(readFileSync(join(worktree, conf.app, 'package.json'), 'utf8')).dependencies?.['@heroui/react']
+    const cur = readlinkSync(hoistLink)
+    if (!want || cur.includes(`@heroui+react@${want}_`)) return
+    const hit = readdirSync(join(worktree, 'node_modules', '.pnpm')).find((d) => d.startsWith(`@heroui+react@${want}_`))
+    if (!hit) return
+    writeFileSync(hoistBackup, cur)
+    unlinkSync(hoistLink)
+    symlinkSync(`../.pnpm/${hit}/node_modules/@heroui/react`, hoistLink)
+    console.log(`hoist: 根 @heroui/react 临时指向 ${want}（stop 时还原）`)
+  } catch (e) {
+    console.log(`hoist: 跳过（${e.message}）`)
+  }
+}
+function restoreHoist() {
+  if (!existsSync(hoistBackup)) return
+  try {
+    unlinkSync(hoistLink)
+    symlinkSync(readFileSync(hoistBackup, 'utf8'), hoistLink)
+    console.log('hoist: 已还原根 @heroui/react')
+  } catch (e) {
+    console.log(`hoist: 还原失败（${e.message}），备份在 ${hoistBackup}`)
+    return
+  }
+  rmSync(hoistBackup, { force: true })
+}
+
 if (cmd === 'stop') {
   for (const pid of pidOnPort()) process.kill(Number(pid), 'SIGTERM')
   rmSync(stateFile, { force: true })
+  restoreHoist()
   // Next dev 会改写已跟踪的 next-env.d.ts（引号/分号），留着会让 check.mjs 的 biome 报错（R17-02265）
   const nextEnv = join(conf.app, 'next-env.d.ts')
   try {
@@ -119,6 +152,7 @@ if (conf.install && !existsSync(join(appDir, 'node_modules'))) {
   console.log(`installing deps for ${site} (${conf.install}) ...`)
   execSync(conf.install, { cwd: appDir, stdio: 'inherit' })
 }
+fixHoist()
 const log = join(stateDir, portOffset ? `${site}-${conf.port}.log` : `${site}.log`)
 const child = spawn('sh', ['-c', conf.start.replaceAll('{port}', String(conf.port))], {
   cwd: appDir, detached: true, stdio: ['ignore', openSync(log, 'w'), openSync(log, 'a')],
