@@ -53,6 +53,14 @@ if (cmd === 'status') {
 if (cmd === 'stop') {
   for (const pid of pidOnPort()) process.kill(Number(pid), 'SIGTERM')
   rmSync(stateFile, { force: true })
+  // Next dev 会改写已跟踪的 next-env.d.ts（引号/分号），留着会让 check.mjs 的 biome 报错（R17-02265）
+  const nextEnv = join(conf.app, 'next-env.d.ts')
+  try {
+    if (execSync(`git -C "${worktree}" diff --name-only -- "${nextEnv}"`, { encoding: 'utf8' }).trim()) {
+      execSync(`git -C "${worktree}" checkout -- "${nextEnv}"`)
+      console.log(`restored ${nextEnv}`)
+    }
+  } catch {}
   console.log(`stopped ${site} (${url})`)
   process.exit(0)
 }
