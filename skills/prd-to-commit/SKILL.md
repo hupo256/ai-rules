@@ -62,9 +62,9 @@ node $S/fetch-prd.mjs <ID> <lark-url>          # → ~/.prd-cache/<ID>/r<rev>/{p
 - **值不值得派看工作量**：可并行的批次里，只派工作量明显大于子 agent 重建上下文成本的（如另一个工程、独立页面）；零散小改动主会话顺手写。没有值得派的就全程串行。
 - **值得派的有 ≥2 批时**，主会话只做批次 0、合并和验证，不写大段 UI；只有 1 批时派它出去，主会话写主线。
 - **派子 agent 时**：每步一个，给它清单行原文、可写文件清单（越界只读）、契约文件路径、§5 编码规则；不跑 git（删文件用 `rm`）、不跑全量检查，返回改了哪些文件和未决问题。共享组件写明只允许做什么（如「只加可选 prop」）。这一批都返回后**逐个看 diff 合并**（报告可能与改动不一致），再开下一批。
-- §6 静态检查通过后，**冷读子 agent 与浏览器子 agent 同时派出**（浏览器用后台模式先派，再前台派冷读；两者都不改业务代码），**两者都返回后才改代码**（先回来的那个可以先定位、列修复方案；改代码会打断正在跑的 spec）；**结果回来之前不能进入 §8/§9，也不能结束或交回任务**。
+- §6 静态检查通过后，**冷读子 agent 与浏览器子 agent 同时派出**（浏览器后台先派，再前台派冷读；都不改业务代码，结果先写入 `~/.prd-cache/<ID>/coldread-N.md`、`browser-roundN.md` 再返回，中断后读文件续），**两者都返回后才改代码**（先回来的可先列修复方案，改代码会打断 spec）；**结果回来前不进 §8/§9、不结束或交回任务**。
 
-在 `~/.prd-cache/<ID>/run-log.md` 记下每批的起止时间、返工原因和意外，供事后复盘。
+`~/.prd-cache/<ID>/run-log.md` 记每批起止时间、返工原因和意外。
 
 ## 4. Worktree
 
@@ -95,7 +95,7 @@ cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报�
 
 手动格式化（`biome check --write`）只传本次改动的文件，不传目录。`not-covered`（如 legacy `.vue` 模板）不算通过，交付说明如实写出。
 
-**浏览器验证（改动涉及可见 UI 时必做）交给 1 个浏览器子 agent**：给它清单、`media-notes.md`、`git diff <BASE>`、`references/browser.md`，要它按清单每个页面/入口写 spec 跑（接口没好就在 spec 里 mock），返回问题列表、spec 路径和 not-covered 项，不改业务代码；截图只看视觉相关步骤（每个页面状态 1 张、失败步骤必看），文案/显隐用 `expectText` 等断言判。§8 修完后用 SendMessage 让**同一个**子 agent 重跑受影响的 spec，只看 report 的通过/失败与 pageerror（抓 tsc 查不出的运行时错误）。确实跑不了的写 `not-covered: <原因>`，不要假装通过。
+**浏览器验证（改动涉及可见 UI 时必做）交给 1 个浏览器子 agent**：给它清单、`media-notes.md`、`git diff <BASE>`、`references/browser.md`，要它按清单每个页面/入口写 spec 跑（接口没好就在 spec 里 mock），返回问题列表、spec 路径和 not-covered 项，不改业务代码；截图只看视觉相关步骤（每个页面状态 1 张、失败步骤必看），文案/显隐用 `expectText` 等断言判。§8 修完后用 SendMessage 让**同一个**子 agent 重跑受影响的 spec，只看 report 的通过/失败与 pageerror（抓运行时错误）。跑不了的写 `not-covered: <原因>`，不假装通过。
 
 ## 7. 独立冷读（必须用子 agent，不能自查）
 
