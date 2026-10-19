@@ -57,9 +57,14 @@ if (cmd === 'stop') {
   process.exit(0)
 }
 
-// 全机限流：整台机器同时最多 P2C_MAX_DEV 个（默认 2）由 dev.mjs 启动且仍在监听的 dev server，超出就排队等待。
+// 全机限流：整台机器同时最多 maxDev 个（默认 4，可热调）由 dev.mjs 启动且仍在监听的 dev server，超出就排队等待。
 // 依据：16G 内存的 mac 上 3 个以上 Next dev 同时冷启动会耗尽内存卡死（2026-10-18 三次强制重启）。
-const maxDev = Number(process.env.P2C_MAX_DEV || 2)
+// 上限可热调：环境变量 > ~/.config/prd-to-commit/dev/max-dev 文件 > 默认 4（排队中每次重试都重新读取）
+const readMaxDev = () => {
+  if (process.env.P2C_MAX_DEV) return Number(process.env.P2C_MAX_DEV)
+  try { return Number(readFileSync(join(stateDir, 'max-dev'), 'utf8').trim()) || 4 } catch { return 4 }
+}
+let maxDev = readMaxDev()
 const liveDevServers = () => readdirSync(stateDir).filter((f) => f.endsWith('.json')).map((f) => {
   try {
     const st = JSON.parse(readFileSync(join(stateDir, f), 'utf8'))
@@ -80,6 +85,7 @@ if (cmd === 'start') {
     }
     console.log(`waiting-slot: 全机已有 ${live.length}/${maxDev} 个 dev server（${live.map((l) => l.url).join(', ')}），30 秒后重试…`)
     await new Promise((r) => setTimeout(r, 30000))
+    maxDev = readMaxDev()
     live = liveDevServers()
   }
 }
