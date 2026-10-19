@@ -61,3 +61,4 @@ python3 $T/run-cost.py R7-02306        # 从会话转录统计 token 与墙钟
 | 2026-10-10 | PR-02306 | v1.0（Codex） | [results/2026-10-10-PR-02306-v1.0-codex.md](./results/2026-10-10-PR-02306-v1.0-codex.md) |
 | 2026-10-10 | PR-02208 | 真实运行（非回放） | [results/2026-10-10-PR-02208-live-run.md](./results/2026-10-10-PR-02208-live-run.md) |
 | 2026-10-11 | 6 个基准 | v1.0.1 → v1.1 | 逐轮数据见 [iteration-ledger.md](../iteration-ledger.md)，汇总见[最终报告](../reports/2026-10-11-final-report.md) |
+| 2026-10-17 → 10-19 | 11 个基准（新增 01973/02006/02074/01947/01988） | v1.4 → v1.6 | 逐轮数据 [iteration-ledger.md](../iteration-ledger.md) R11–R19，失分分析 [results/2026-10-17-R11-v1.4.md](./results/2026-10-17-R11-v1.4.md)，汇总见[最终报告](../reports/2026-10-19-final-report.md) |
