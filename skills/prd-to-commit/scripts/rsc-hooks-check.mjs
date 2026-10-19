@@ -74,8 +74,14 @@ for (const app of readdirSync(join(root, 'apps'))) {
 
 // 起点版本里同一文件已经调用 hook（存量引用链，本次没新引入）→ 记 pre-existing，不算 FAIL（R17-01973 误报 markets/layout → public-info）
 const stripComments = (code) => code.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '')
+// 只有当前文件用到的 hook 名在起点都已出现过才算存量；新增任何 hook 名（如起点只有 useQuery、现在加了 useEffect）照样 FAIL（R19-02006 整站 500）
+const hookNames = (code) => new Set([...stripComments(code).matchAll(new RegExp(HOOK.source, 'g'))].map((m) => m[1]))
 const baseHasHook = (file) => {
-  try { return HOOK.test(stripComments(execFileSync('git', ['show', `${mergeBase}:${relative(root, file)}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))) } catch { return false }
+  try {
+    const base = hookNames(execFileSync('git', ['show', `${mergeBase}:${relative(root, file)}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))
+    if (!base.size) return false
+    return [...hookNames(readFileSync(file, 'utf8'))].every((n) => base.has(n))
+  } catch { return false }
 }
 const preExisting = problems.filter((p) => baseHasHook(p.file))
 for (const p of preExisting) console.log(`rsc-hooks: pre-existing（起点已有，不计 FAIL）${relative(root, p.file)}`)
