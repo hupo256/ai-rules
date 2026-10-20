@@ -34,7 +34,7 @@ for s in coding-quality figma-read change-scoping prd-to-commit; do
 done
 ```
 
-> 本机现状（2026-10-20）：`~/.codex/skills` 里还没有 `prd-to-commit`。在 Codex 里用这个流程之前，先补上这个软链。
+接好后检查一下：`ls -la ~/.claude/skills ~/.codex/skills`，两边都应该能看到这 4 个软链。
 
 ### 4. prd-to-commit 的额外前置条件
 
@@ -186,7 +186,7 @@ done
 改 `prd-to-commit` 有固定门槛：
 - 同类问题出现 2 次，并且能在回放中复现，才改；
 - 改完要用 11 个已上线的真实需求做回放评分，得分不低于上一版、陷阱零违反才放行；
-- 放行后打 tag `prd-to-commit-vX.Y[.Z]`，并在 `releases.md` 和 `iteration-ledger.md` 里记录。
+- 放行后打 tag `prd-to-commit-vX.Y[.Z]`，并在 `releases.md` 和 `iteration-ledger.md` 里记录；推送 main 时把 tag 一起推上去（`git push origin 'refs/tags/prd-to-commit-v*'`）。GitHub 上的 tag 列表就是版本历史。
 
 完整纪律见 [labs/prd-to-commit/README.md](labs/prd-to-commit/README.md)。
 

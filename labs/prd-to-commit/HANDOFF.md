@@ -4,6 +4,7 @@
 
 ## 现状
 
+- 接入：`~/.claude/skills/prd-to-commit` 与 `~/.codex/skills/prd-to-commit` 都已软链（Codex 侧 2026-10-20 补上）；tag v1.0–v1.6.1 已推到 GitHub。接入方法与注意事项见仓库根 [README.md](../../README.md)。
 - skill：`~/.ai-rules/skills/prd-to-commit/`，SKILL.md 139 行、18407 字节（上限 18432，再加规则先压缩）。
 - 回放基准 11 个（`replay/PR-*.md`、`replay/tools/bench.json`、PRD 快照 `~/.prd-cache/REPLAY-<号>/`）。v1.6 成绩 139/148，陷阱 0；逐轮数据在 [iteration-ledger.md](./iteration-ledger.md) R11–R19。
 - 回放 worktree 与 fameex-web 本地 `replay/R*` 分支（45 个，从未 push）已全部删除；回放代码不再保留，成绩与失分分析以台账和 results 为准。

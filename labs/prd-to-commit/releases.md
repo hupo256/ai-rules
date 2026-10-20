@@ -7,7 +7,7 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 - **加规则的门槛**：同类问题出现 2 次，并且能在回放中复现。
 - **放行条件**：改动后至少回放受影响的基准；得分不低于上一版，且陷阱零违反。没有改善就撤回。
 - **体量上限**：SKILL.md ≤150 行、≤18KB。超了先精简再加。
-- **记录**：每次打 tag，在本文件顶部追加一节，并在 [iteration-ledger.md](./iteration-ledger.md) 记录回放结果（不回放的要写明原因）；（2026-10-11 本台账迁入 `~/.ai-rules/labs/prd-to-commit/` 后，不再同步 docs_tdd 根 README 和 CHANGELOG，docs_tdd 已冻结。）未打 tag 的提交记在「未发布」一节。
+- **记录**：每次打 tag，在本文件顶部追加一节，并在 [iteration-ledger.md](./iteration-ledger.md) 记录回放结果（不回放的要写明原因）；（2026-10-11 本台账迁入 `~/.ai-rules/labs/prd-to-commit/` 后，不再同步 docs_tdd 根 README 和 CHANGELOG，docs_tdd 已冻结。）未打 tag 的提交记在「未发布」一节。推送 main 时 tag 一起推（`git push origin 'refs/tags/prd-to-commit-v*'`）。
 
 ## 未发布
 
