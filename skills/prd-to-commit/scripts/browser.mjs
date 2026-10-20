@@ -309,15 +309,8 @@ if (cmd === 'run') {
   const page = context.pages()[0] ?? (await context.newPage())
   const report = { site: name, spec: specPath, steps: [], consoleErrors: [], pageErrors: [], failedRequests: [], realWrites: [], blockedWrites: [], mocked: [] }
 
-  // 1) mock：spec.mocks = [{ url: /regex/ 或 'glob', method?: 'POST', json?: {...}, status?: 200 }]
-  for (const m of spec.mocks ?? []) {
-    await context.route(m.url, (route) => {
-      if (m.method && route.request().method() !== m.method) return route.fallback()
-      report.mocked.push(`${route.request().method()} ${route.request().url()}`)
-      return route.fulfill({ status: m.status ?? 200, contentType: 'application/json', body: JSON.stringify(m.json ?? { code: '0', msg: '', data: null }) })
-    })
-  }
-  // 2) 写保护：dev 环境（pfyys）上默认允许真实写入——dev 本来就是联调用的、数据好操作；
+  // Playwright 后注册的 route 先执行：写保护先注册，spec 的 mock 才能先命中，未命中的再落到写保护。
+  // 1) 写保护：dev 环境（pfyys）上默认允许真实写入——dev 本来就是联调用的、数据好操作；
   //    发往其他域名（test/pre/生产）的写操作一律拦截，防止环境配错时写到不该写的地方。
   //    spec.strictWrites = true 可在 dev 上也拦截未 mock 的写；spec.allowWrites = [/regex/] 可对非 dev 域名逐条放行。
   // 只看路径最后一段：以查询动词开头、或以查询名词结尾的算读（deposit_and_withdraw_info、getConfigCoinList、user_config）；
@@ -333,21 +326,32 @@ if (cmd === 'run') {
   const WRITE = /(create|add|insert|update|edit|modify|delete|remove|submit|save|apply|bind|unbind|invalid|cancel|transfer|withdraw|deposit|place|order\/new|mark|sync|reset|offline|enable|disable)/i
   // 登出类接口无论如何都拦（放行会让服务端会话失效，保存的登录态就废了）
   const LOGOUT = /(log_?out|login_?out|sign_?out)/i
-  await context.route(/^https?:\/\/(?!localhost)/, (route) => {
+  // legacy 后台的接口经本地 devServer 代理转发（localhost:8109/operate-api → cmsadmin.pfyys.com），
+  // 按 browser-sites.json 的 proxy 把前缀映射回真实目标域名再判断；P2C_PROXY_FROM/TO 与 legacy-vue.config.cjs 同步替换
+  const { P2C_PROXY_FROM: proxyFrom, P2C_PROXY_TO: proxyTo } = process.env
+  const proxyTargets = Object.entries(conf.proxy ?? {}).map(([prefix, host]) => [prefix, proxyFrom && proxyTo ? host.split(proxyFrom).join(proxyTo) : host])
+  await context.route(/^https?:\/\//, (route) => {
     const req = route.request()
     const method = req.method()
     if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return route.fallback()
-    const path = new URL(req.url()).pathname
+    const url = new URL(req.url())
+    const path = url.pathname
     if (LOGOUT.test(path)) {
       report.blockedWrites.push(`${method} ${req.url()} (logout)`)
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 0, msg: 'blocked logout', data: null }) })
+    }
+    let host = url.hostname
+    if (host === 'localhost' || host === '127.0.0.1') {
+      const target = proxyTargets.find(([prefix]) => path.startsWith(prefix))
+      if (!target) return route.fallback()
+      host = target[1]
     }
     if ((spec.allowWrites ?? []).some((re) => re.test(req.url()))) {
       report.realWrites.push(`${method} ${req.url()}`)
       return route.fallback()
     }
     const readLike = isReadLikePath(path)
-    const devHost = DEV_WRITE_HOST.test(new URL(req.url()).hostname)
+    const devHost = DEV_WRITE_HOST.test(host)
     if (WRITE.test(path) && !readLike && (!devHost || spec.strictWrites === true)) {
       report.blockedWrites.push(`${method} ${req.url()}`)
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: '0', msg: 'blocked by browser.mjs (unmocked write)', data: null }) })
@@ -355,6 +359,14 @@ if (cmd === 'run') {
     report.realWrites.push(`${method} ${req.url()}`)
     return route.fallback()
   })
+  // 2) mock：spec.mocks = [{ url: /regex/ 或 'glob', method?: 'POST', json?: {...}, status?: 200 }]
+  for (const m of spec.mocks ?? []) {
+    await context.route(m.url, (route) => {
+      if (m.method && route.request().method() !== m.method) return route.fallback()
+      report.mocked.push(`${route.request().method()} ${route.request().url()}`)
+      return route.fulfill({ status: m.status ?? 200, contentType: 'application/json', body: JSON.stringify(m.json ?? { code: '0', msg: '', data: null }) })
+    })
+  }
   // 去掉开发态叠层（react-scan 组件标注/FPS、Next 开发角标），否则截图无法做视觉比对
   await context.route(/unpkg\.com\/react-scan/, (route) => route.abort())
   await context.addInitScript(() => {

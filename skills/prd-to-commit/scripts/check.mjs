@@ -9,8 +9,9 @@
 // - TanStack 路由（有 src/routeTree.gen.ts 的 app）：routes 有增删改名但路由树没更新时直接报出
 // usage: check.mjs [--base origin/online]   （在 worktree 根目录运行；--base 可为分支或 commit）
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { createHash } from 'node:crypto'
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -73,31 +74,98 @@ if (code.length) {
     failed = true
     console.log(`\n[biome] FAIL\n${(biome.stdout + biome.stderr).split('\n').slice(-60).join('\n')}`)
   } else console.log('[biome] pass')
+}
 
-  const apps = [...new Set(code.map((file) => file.match(/^(apps\/[^/]+)\//)?.[1]).filter(Boolean))]
-  for (const app of apps) {
-    if (!existsSync(`${app}/tsconfig.json`)) continue
-    const tsc = spawnSync('npx', ['tsc', '--noEmit', '-p', app], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-    const errors = (tsc.stdout + tsc.stderr).split('\n').filter((line) => /error TS\d+/.test(line))
-    const appFiles = code.filter((file) => file.startsWith(`${app}/`))
-    const lineMap = new Map(appFiles.map((file) => [file, changedLines(file)]))
-    const inFiles = []
+// tsc：改动行上的错误直接 FAIL；其余错误（未改动的调用方、改动文件的未改行）与 base 上同一工程的 tsc 结果比对，多出来的算本次引入。
+// 改 packages/* 时跑该包并附带 apps/web；只删文件也要跑（调用方可能断引用）
+const deletedCode = sh('git', ['diff', '--name-only', '--diff-filter=D', mergeBase]).split('\n')
+  .filter((file) => /\.(tsx?|jsx?)$/.test(file) && !isLegacy(file))
+const tsRoots = [...new Set([...code, ...deletedCode].flatMap((file) => {
+  const pkg = file.match(/^(packages\/[^/]+)\//)?.[1]
+  return pkg ? [pkg, 'apps/web'] : [file.match(/^(apps\/[^/]+)\//)?.[1]]
+}))].filter((root) => root && existsSync(`${root}/tsconfig.json`))
+
+function runTsc(root, cwd) {
+  const result = spawnSync('npx', ['tsc', '--noEmit', '-p', root], { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`
+  const errors = output.split('\n').filter((line) => /error TS\d+/.test(line) && !/(^|\/)\.next\//.test(line))
+  // 解析不到任何错误行却非 0 退出（tsc 没装上、TS5xxx 配置错误等）算工具失败，不能当 pass
+  const broken = Boolean(result.error) || (result.status !== 0 && !errors.length)
+  return { errors, broken, tail: output.split('\n').slice(-15).join('\n') }
+}
+// 只按「文件 + TS 码」比：同一条存量错误在两次运行里打印的长类型（属性顺序、... N more ...）会不同，比全文会误报
+const errorKey = (line) => {
+  const match = line.match(/^(.+?)\(\d+,\d+\): error (TS\d+)/)
+  return match ? `${match[1]} ${match[2]}` : line
+}
+
+if (tsRoots.length) {
+  const lineMap = new Map(code.map((file) => [file, changedLines(file)]))
+  const results = tsRoots.map((root) => {
+    const { errors, broken, tail } = runTsc(root, process.cwd())
     const onChangedLines = []
+    const elsewhere = []
     for (const line of errors) {
       const match = line.match(/^(.+?)\((\d+),\d+\): error/)
-      if (!match) continue
-      const file = appFiles.find((f) => f === match[1] || f === `${app}/${match[1]}`)
-      if (!file) continue
-      inFiles.push(line)
-      if (lineMap.get(file).has(Number(match[2]))) onChangedLines.push(line)
+      const file = match && code.find((f) => f === match[1] || f === `${root}/${match[1]}`)
+      if (file && lineMap.get(file).has(Number(match[2]))) onChangedLines.push(line)
+      else elsewhere.push(line)
     }
-    if (onChangedLines.length) {
+    return { root, broken, tail, onChangedLines, elsewhere }
+  })
+  const needBase = results.filter((r) => !r.broken && r.elsewhere.length).map((r) => r.root)
+  const baseErrors = needBase.length ? baseTscErrors(needBase) : new Map()
+  for (const { root, broken, tail, onChangedLines, elsewhere } of results) {
+    if (broken) {
       failed = true
-      console.log(`\n[tsc ${app}] ${onChangedLines.length} error(s) on changed lines\n${onChangedLines.slice(0, 40).join('\n')}`)
-    } else console.log(`[tsc ${app}] pass`)
-    const preexisting = inFiles.length - onChangedLines.length
-    if (preexisting) console.log(`  note: ${preexisting} pre-existing error(s) in changed files on untouched lines (ignored); ${errors.length} total in app`)
+      console.log(`\n[tsc ${root}] FAIL (tool failure)\n${tail}`)
+      continue
+    }
+    const baseResult = baseErrors.get(root)
+    if (elsewhere.length && baseResult.broken) {
+      failed = true
+      console.log(`\n[tsc ${root}] FAIL (base tool failure：无法区分存量与新增，${elsewhere.length} 个改动行以外的错误未核对)\n${baseResult.tail}`)
+      continue
+    }
+    // 按多重集合比对：存量错误随改动挪行不算新增，同一文件同类错误多出一次算新增
+    const remaining = new Map()
+    for (const line of baseResult?.errors ?? []) remaining.set(errorKey(line), (remaining.get(errorKey(line)) ?? 0) + 1)
+    const introduced = elsewhere.filter((line) => {
+      const left = remaining.get(errorKey(line)) ?? 0
+      if (left > 0) remaining.set(errorKey(line), left - 1)
+      return left === 0
+    })
+    if (onChangedLines.length || introduced.length) {
+      failed = true
+      if (onChangedLines.length) console.log(`\n[tsc ${root}] ${onChangedLines.length} error(s) on changed lines\n${onChangedLines.slice(0, 40).join('\n')}`)
+      if (introduced.length) console.log(`\n[tsc ${root}] ${introduced.length} error(s) introduced outside changed lines（base ${mergeBase.slice(0, 10)} 上没有）\n${introduced.slice(0, 40).join('\n')}`)
+    } else console.log(`[tsc ${root}] pass${elsewhere.length ? `（${elsewhere.length} 个存量错误与 base 一致，已忽略）` : ''}`)
   }
+}
+
+// base 的 tsc 结果按 merge-base + 锁文件缓存在 ~/.prd-cache/_tsc-base/，同一需求反复 check 只算一次
+function baseTscErrors(roots) {
+  const lock = existsSync('pnpm-lock.yaml') ? createHash('sha1').update(readFileSync('pnpm-lock.yaml')).digest('hex').slice(0, 10) : 'nolock'
+  const cacheDir = join(homedir(), '.prd-cache', '_tsc-base')
+  const cacheFile = (root) => join(cacheDir, `${mergeBase.slice(0, 12)}-${lock}-${root.replace(/\//g, '_')}.json`)
+  const out = new Map()
+  const missing = []
+  for (const root of roots) {
+    if (existsSync(cacheFile(root))) out.set(root, JSON.parse(readFileSync(cacheFile(root), 'utf8')))
+    else missing.push(root)
+  }
+  if (missing.length) {
+    console.log(`[tsc] 在 base ${mergeBase.slice(0, 10)} 上跑 tsc 做存量比对：${missing.join(', ')}（首次较慢，之后走缓存）`)
+    withBaseWorktree(missing, (dir) => {
+      mkdirSync(cacheDir, { recursive: true })
+      for (const root of missing) {
+        const result = runTsc(root, dir)
+        out.set(root, result)
+        if (!result.broken) writeFileSync(cacheFile(root), JSON.stringify(result))
+      }
+    })
+  }
+  return out
 }
 
 // 代码规则（code-rules.mjs）：biome/tsc 管不到的 error 级约定（组件直连 fetch、parse as、mock 泄漏、300 行等），只看改动行
@@ -186,14 +254,49 @@ function runVitest(files, app, root) {
   return { ok: result.status === 0, output, failures, failedFiles }
 }
 
-// base 的临时 worktree：复用当前 worktree 的依赖（软链 node_modules），只用来复跑失败的测试
+// pnpm 的 workspace 依赖是相对软链（apps/web/node_modules/@fameex/types → ../../../../packages/types）：整目录软链过去会解析回
+// 当前 worktree 的 packages，base 上看到的就是改过的包。逐项镜像，指向当前 worktree 内（node_modules 之外）的链接改指 base 里的同一路径
+function mirrorNodeModules(rel, dir, links) {
+  const src = join(process.cwd(), rel)
+  mkdirSync(join(dir, rel), { recursive: true })
+  for (const name of readdirSync(src)) {
+    const from = join(src, name)
+    const stat = lstatSync(from)
+    if (name.startsWith('@') && stat.isDirectory()) {
+      mirrorNodeModules(join(rel, name), dir, links)
+      continue
+    }
+    let target = from
+    if (stat.isSymbolicLink()) {
+      try {
+        const inside = relative(process.cwd(), realpathSync(from))
+        if (!inside.startsWith('..') && !inside.split('/').includes('node_modules')) target = join(dir, inside)
+      } catch {}
+    }
+    symlinkSync(target, join(dir, rel, name))
+    links.push(join(rel, name))
+  }
+}
+
+// base 的临时 worktree：复用当前 worktree 的依赖，用来复跑失败的测试和比对 tsc 存量错误
 function withBaseWorktree(apps, fn) {
   const dir = join(tmpdir(), `p2c-base-${mergeBase.slice(0, 10)}-${process.pid}`)
   const added = spawnSync('git', ['worktree', 'add', '--detach', dir, mergeBase], { encoding: 'utf8' })
   if (added.status !== 0) throw new Error(`无法创建 base worktree：${added.stderr.trim()}`)
-  const links = ['node_modules', ...apps.filter(Boolean).map((app) => `${app}/node_modules`)].filter((path) => existsSync(path))
+  // 所有 workspace 包的依赖都要镜像：apps/web 编译时会读 packages/* 源码，缺了它们的 node_modules 类型会退化成 any，base 报错偏少
+  const workspaces = ['apps', 'packages'].flatMap((top) => (existsSync(top) ? readdirSync(top).map((name) => join(top, name)) : []))
+  const roots = [...new Set(['.', ...workspaces, ...apps.filter(Boolean)])]
+  const links = []
   try {
-    for (const path of links) symlinkSync(join(process.cwd(), path), join(dir, path))
+    for (const root of roots) {
+      if (existsSync(join(root, 'node_modules'))) mirrorNodeModules(join(root, 'node_modules'), dir, links)
+      // next-env.d.ts 被 gitignore，base 没有它会多出一批图片/样式模块的类型错误
+      const nextEnv = join(root, 'next-env.d.ts')
+      if (existsSync(nextEnv) && !existsSync(join(dir, nextEnv))) {
+        symlinkSync(join(process.cwd(), nextEnv), join(dir, nextEnv))
+        links.push(nextEnv)
+      }
+    }
     return fn(dir)
   } finally {
     // 只解除软链（不能递归删除，否则会顺着软链删掉当前 worktree 的依赖），再移除临时 worktree

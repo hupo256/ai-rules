@@ -44,7 +44,7 @@ prd-to-commit v1.6 已放行（tag `prd-to-commit-v1.6`），可以接真实需�
 
 - `check.mjs` 能拦服务端组件误引 hook（运行时 500）和 Vue2 旧工程不支持的语法。
 - `dev.mjs` 全机限流，并自动修正 worktree 里装错版本的 heroui；停服时还原 dev 改写的文件。
-- `auth-fallback.mjs` 无人值守假登录；`browser.mjs` 写接口一律拦截，不会写 dev 数据。
+- `auth-fallback.mjs` 无人值守假登录；`browser.mjs` 在 dev（pfyys）上默认真实写入（报告 `realWrites` 列出、交付说明写明改了哪些 dev 数据；spec 设 `strictWrites` 可拦截），发往其他环境的写操作与登出一律拦截。（2026-10-20 更正：原文写「写接口一律拦截，不会写 dev 数据」与实现不符。）
 
 完整清单见 [releases.md](../releases.md) v1.6 节，逐轮数据见 [iteration-ledger.md](../iteration-ledger.md)。
 

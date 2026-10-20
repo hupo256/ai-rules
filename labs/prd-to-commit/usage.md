@@ -1,6 +1,6 @@
 # prd-to-commit 使用说明
 
-> 当前版本与改动见 [releases.md](./releases.md) · 实测数据见[最终报告](./reports/2026-10-11-final-report.md)
+> 当前版本与改动见 [releases.md](./releases.md) · 实测数据见[最终报告](./reports/2026-10-19-final-report.md)
 
 ## 怎么开始
 
@@ -44,19 +44,22 @@ AI 读完 PRD（内嵌表格和图片会自动落盘、展开）后，会给你�
   - token/耗时统计
 - 过程文件在 `~/.prd-cache/<ID>/`：checklist.md、plan.md、run-log.md。
 
-## 预期效果（2026-10-11 回放实测，详见[最终报告](./reports/2026-10-11-final-report.md)）
+## 预期效果（v1.6，2026-10-19 回放实测，详见[最终报告](./reports/2026-10-19-final-report.md)）
+
+含冷读与全页面浏览器验证、不中断的一次跑完：
 
 | 需求规模 | 耗时 | token |
 |---|---|---|
-| 小（<15 个文件） | 10–22 分钟 | 4–13M |
-| 中（15–30 个文件） | 23–34 分钟 | 20–36M |
-| 大（30–40 个文件，跨 4 个工程） | 约 36 分钟 | 约 33M |
+| 小 | 19–41 分钟 | 6–16M |
+| 中、大 | 50–90 分钟 | 45–90M |
+
+你在第 3 步确认前花的时间不计入。
 
 历史上同类需求是 73–208M token、活跃 3–12 小时。
 
 ## 需要知道的限制
 
-- **浏览器核对已打通**（2026-10-11）：web、admin、legacy-admin、futures-legacy-admin 四个站点用固定端口的 dev server 加专用浏览器 profile 跑真实页面，**连 dev 环境**（接口先发 dev 联调，dev 也更好操作）。接口没好时，AI 会自行加最小化的 MSW mock 把页面写全，只在本地开发、开关打开时生效，接口上了 dev 就删；交付说明会列出这些 mock。写操作在 dev 上默认真实执行（交付说明会列出改了哪些 dev 数据），发往其他环境的写操作一律拦截。你只需要登录两次（web、现货后台；登录态按环境区分，换环境后要重新登录一次），登录态失效时 AI 会提示你执行 `node ~/.ai-rules/skills/prd-to-commit/scripts/browser.mjs login --site <web|legacy-admin>`。详见 skill 的 `references/browser.md`。后台各页面的验证脚本细节后续再补。
+- **浏览器核对已打通**（2026-10-11）：web、admin、legacy-admin、futures-legacy-admin 四个站点用固定端口的 dev server 加专用浏览器 profile 跑真实页面，**连 dev 环境**（接口先发 dev 联调，dev 也更好操作）。接口没好时，AI 会自行加最小化的 MSW mock 把页面写全，只在本地开发、开关打开时生效，接口上了 dev 就删；交付说明会列出这些 mock。写操作在 dev 上默认真实执行（交付说明会列出改了哪些 dev 数据），发往其他环境的写操作一律拦截。你只需要登录三次（web、web-next、现货后台；登录态按环境区分，换环境后要重新登录一次），登录态失效时 AI 会提示你执行 `node ~/.ai-rules/skills/prd-to-commit/scripts/browser.mjs login --site <web|legacy-admin>`。详见 skill 的 `references/browser.md`。后台各页面的验证脚本细节后续再补。
 - **legacy Vue2 模板没有编译检查**：check 会报 `not-covered`，需要人工核对。
 - **Codex CLI**：沙箱里 `.git` 是只读的，提交会失败，它会把提交打成 bundle。用 Codex 桌面 App 没有这个问题。
 - **Lark 历史版本**：需要文档编辑权限，平时拉最新版不受影响。

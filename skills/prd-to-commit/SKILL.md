@@ -76,7 +76,7 @@ node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID
 
 **禁止在 fameex-web 用 `git stash`**：所有 worktree 共用 stash 栈。对比改动前后用 `git show HEAD:<file>` 或临时 worktree。
 
-需浏览器验证时，建完 worktree 就对涉及站点跑 `browser.mjs check`，失效立刻请用户 `login`、编码照常进行（`references/browser.md`）。
+需浏览器验证时，建完 worktree 就对涉及站点 `dev.mjs start` 后跑 `browser.mjs check`，失效立刻请用户 `login`、编码照常进行（`references/browser.md`）。
 
 ## 5. 编码
 
@@ -91,12 +91,12 @@ node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID
 ## 6. 检查（只查改动）
 
 ```bash
-cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（只报改动行）+ code-rules（豁免写 `// code-rules-ignore <ID>: <理由>`）；legacy JS/.vue 做语法检查；改动的测试文件跑 vitest
+cd ~/github/<ID> && node $S/check.mjs [--base <BASE>]   # biome + tsc（改动行 + 比 base 新增的）+ code-rules（豁免写 `// code-rules-ignore <规则号如 CODE-ARCH-001>: <理由>`）；legacy JS/.vue 做语法检查；改动的测试文件跑 vitest
 ```
 
 手动格式化（`biome check --write`）只传本次改动的文件，不传目录。`not-covered`（如 legacy `.vue` 模板）不算通过，交付说明如实写出。
 
-**浏览器验证（改动涉及可见 UI 时必做）交给 1 个浏览器子 agent**：给它清单、`media-notes.md`、`git diff <BASE>`、`references/browser.md`，要它按清单每个页面/入口写 spec 跑（接口没好就在 spec 里 mock），返回问题列表、spec 路径和 not-covered 项，不改业务代码；截图只看视觉相关步骤（每个页面状态 1 张、失败步骤必看），文案/显隐用 `expectText` 等断言判。§8 修完后用 SendMessage 让**同一个**子 agent 重跑受影响的 spec，只看 report 的通过/失败与 pageerror。跑不了的写 `not-covered: <原因>`，不假装通过。
+**浏览器验证（改动涉及可见 UI 时必做）交给 1 个浏览器子 agent**：给它清单、`media-notes.md`、`git diff <BASE>`、`references/browser.md`，要它按清单每个页面/入口写 spec 跑（接口没好就在 spec 里 mock），返回问题列表、spec 路径和 not-covered 项，不改业务代码；截图与断言的取舍按 browser.md §4。§8 修完后用 SendMessage 让**同一个**子 agent 重跑受影响的 spec，只看 report 的通过/失败与 pageerror。跑不了的写 `not-covered: <原因>`，不假装通过。
 
 ## 7. 独立冷读（必须用子 agent，不能自查）
 

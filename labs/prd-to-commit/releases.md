@@ -28,6 +28,17 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 - **PRD 少写校验条件时补一行还是并入已有项**（R18-02306）。
 - **02074 方差**：C7/C8/C11/C13/C14 轮换丢分，各轮 10–12/14，单列风险，不立规则。
 
+## v1.6.1 — 2026-10-20
+
+正式使用前的整体审查修复。不改流程与规则，未回放（原因见 [iteration-ledger.md](./iteration-ledger.md)）。
+
+- **check.mjs：tsc 漏报未改动的调用方**。原逻辑只报落在改动文件里的错误：改了共享类型/props/导出后，调用方报错被丢弃，check 照样 pass；改 `packages/*` 不跑 tsc；tsc 自身没跑起来也显示 pass。现在改动行以外的错误与 base 上同一工程的 tsc 结果按「文件 + TS 码」计数比对，多出的算本次引入；改 packages 时跑该包并附带 apps/web；只删文件也跑；tsc 工具失败按 FAIL。base 结果按 merge-base + 锁文件缓存在 `~/.prd-cache/_tsc-base/`，每个需求首次多约 1 分钟。base worktree 逐项镜像所有 workspace 包的 node_modules，workspace 软链改指 base 的 packages。
+  - 实测（origin/online 75930e9a62）：无害改动 pass（339 个存量错误忽略）；`generateMetaData` 加必填参数报出 75 个调用方错误（旧逻辑 pass）；`packages/utils` 的 `getQuery` 改签名报出 1198 个下游错误。调试中排除了两类误报：base 缺 packages 依赖导致类型退化为 any；同一存量错误两次运行打印的长类型不同。
+- **browser.mjs：写保护补齐并调整顺序**。legacy-admin 的 `baseURLOld` 在本地走 `localhost/old-api` → f4mes（测试环境），绕过了只看非 localhost 的写保护；现按 `browser-sites.json` 新增的 `proxy` 映射回目标域名判断。写保护原先注册在 mocks 之后（Playwright 后注册先执行），导致非 dev 的写 mock 被占位响应覆盖、dev 上被 mock 的写记成 realWrites；改为先注册写保护。实测 5 类请求分类全部正确。
+- **SKILL.md**：豁免注释写成 `<规则号如 CODE-ARCH-001>`（原 `<ID>` 易被写成项目号，且项目号也符合正则，会静默不豁免）；§4 写明先 `dev.mjs start` 再 `browser.mjs check`；§6 截图取舍改为指向 browser.md §4。18407 字节。
+- **文档**：usage.md 的成本预期改为 v1.6 实测、登录次数改为三次；最终报告更正「写接口一律拦截」；browser.md 的并发上限默认值改为 4（与 dev.mjs 一致）。
+- **审查发现、未修**（不影响单需求按流程跑完）：fetch-prd 中断留下未展开表格的缓存；worktree 复用时分支不符只警告；dev.mjs 默认抢占其他 worktree 的同端口；重命名文件被当整份新增；rsc-hooks 不查「改动的 layout 新引入未改动的 hook 文件」；非 dev 写拦截是动词黑名单。
+
 ## v1.6 — 2026-10-19
 
 覆盖 v1.5-rc 到 v1.6-rc7 的全部迭代：读图与找落点子 agent 化、浏览器验证独立子 agent 与冷读并行、冷读/浏览器结果落盘可断点续跑，以及 6 条由回放复现的新规则；工具侧补 rsc-hooks、legacy 语法、假登录、全机 dev 限流与依赖提升自动修正。新增 5 个回放基准（01973、02006、02074、01947、01988），基准共 11 个。

@@ -36,6 +36,10 @@
     "loginPath": "/#/login",
     "authCheckPath": "/#/",
     "loggedOutPattern": "#/login",
+    "proxy": {
+      "/operate-api": "cmsadmin.pfyys.com",
+      "/old-api": "cmsadmin.f4mes.com"
+    },
     "authProbe": {
       "url": "/operate-api/",
       "fail": "\"code\":\"10021\"|登录状态已失效|未登录"
@@ -50,6 +54,10 @@
     "loginPath": "/#/login",
     "authCheckPath": "/#/userData/flowerQuery",
     "loggedOutPattern": "#/login",
+    "proxy": {
+      "/etf-api": "futuresadmin.pfyys.com",
+      "/fe-coadmin-api": "futuresadmin.pfyys.com"
+    },
     "authProbe": {
       "url": "/fe-coadmin-api/user_info",
       "fail": "\"code\":\"(10021|10002|401)\"|登录状态已失效|未登录|请重新登录"
