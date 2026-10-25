@@ -51,10 +51,13 @@ function claudeUsage(files) {
     }
   }
   times.sort()
-  return { calls: seen.size, tokens, start: times[0], end: times.at(-1) }
+  return { calls: seen.size, tokens, start: times[0], end: times.at(-1), times }
 }
 
 const rows = []
+const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// 项目号前后不能紧跟字母数字或连字符：PR-0193 不能匹配到 PR-01930 的会话
+const idMention = new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`)
 for (const file of walk(join(homedir(), '.claude', 'projects'), (path) => path.endsWith('.jsonl') && !path.includes('/subagents/'))) {
   const events = lines(file)
   const userTexts = events.filter((event) => event.type === 'user' && !event.isMeta)
@@ -62,7 +65,7 @@ for (const file of walk(join(homedir(), '.claude', 'projects'), (path) => path.e
     .filter((content) => typeof content === 'string' || content?.some?.((part) => part.type === 'text'))
     .slice(0, 5).map(textOf)
   const cwd = events.find((event) => event.cwd)?.cwd ?? ''
-  if (!userTexts.some((text) => text.includes(id)) && !cwd.includes(id)) continue
+  if (!userTexts.some((text) => idMention.test(text)) && !idMention.test(cwd)) continue
   const subDir = file.replace(/\.jsonl$/, '/subagents')
   const subFiles = existsSync(subDir) ? readdirSync(subDir).filter((name) => name.endsWith('.jsonl')).map((name) => join(subDir, name)) : []
   const main = claudeUsage([file])
@@ -71,7 +74,6 @@ for (const file of walk(join(homedir(), '.claude', 'projects'), (path) => path.e
 }
 
 // Codex：取每个会话最后一次 token_count 的累计值；子代理会话（session_meta.source.subagent）并入父会话
-const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 // 路径提及要求项目号后不再跟字母数字或连字符，避免 REPLAY-01930 误配 REPLAY-01930-v4
 const pathMention = new RegExp(`(?:\\.prd-cache|/github)/${escaped}(?![\\w-])`)
 const codex = walk(join(homedir(), '.codex', 'sessions'), (path) => path.endsWith('.jsonl')).map((file) => {
@@ -84,9 +86,9 @@ const codex = walk(join(homedir(), '.codex', 'sessions'), (path) => path.endsWit
   const times = events.map((event) => event.timestamp).filter(Boolean).sort()
   return {
     file, threadId: meta.id, parent: meta.source?.subagent?.thread_spawn?.parent_thread_id ?? null,
-    matched: users.slice(0, 5).some((text) => text.includes(id)) || (meta.cwd ?? '').includes(id) || pathMention.test(raw),
+    matched: users.slice(0, 5).some((text) => idMention.test(text)) || idMention.test(meta.cwd ?? '') || pathMention.test(raw),
     calls: events.filter((event) => event.payload?.type === 'token_count').length,
-    tokens: usage?.total_tokens ?? 0, start: times[0], end: times.at(-1),
+    tokens: usage?.total_tokens ?? 0, start: times[0], end: times.at(-1), times,
   }
 })
 const byThread = new Map(codex.map((session) => [session.threadId, session]))
@@ -109,18 +111,26 @@ for (const [key, sessions] of groups) {
     tool: 'codex', session: root.threadId.slice(0, 8), subagents: sessions.length - 1,
     mainTokens: root.tokens, calls: sessions.reduce((sum, session) => sum + session.calls, 0),
     tokens: sessions.reduce((sum, session) => sum + session.tokens, 0), start: times[0], end: times.at(-1),
+    times: sessions.flatMap((session) => session.times).sort(),
   })
 }
 
 const minutes = (row) => (row.start && row.end ? Math.round((Date.parse(row.end) - Date.parse(row.start)) / 60000) : 0)
+// 活跃时长：相邻事件间隔超过 10 分钟的部分（等用户确认、额度暂停、过夜）不计，墙钟会把这些都算进去
+const activeMinutes = (row) => {
+  const ts = (row.times ?? []).map((t) => Date.parse(t)).filter(Number.isFinite)
+  let ms = 0
+  for (let i = 1; i < ts.length; i++) if (ts[i] - ts[i - 1] <= 600000) ms += ts[i] - ts[i - 1]
+  return Math.round(ms / 60000)
+}
 const m = (n) => `${(n / 1e6).toFixed(1)}M`
 const table = [
-  `| 工具 | 会话 | 子 agent | 模型调用 | token（含子 agent） | 主会话 token | 墙钟 | 起止 |`,
-  '|-|-|-|-|-|-|-|-|',
-  ...rows.map((row) => `| ${row.tool} | ${row.session} | ${row.subagents} | ${row.calls} | ${m(row.tokens)} | ${m(row.mainTokens)} | ${minutes(row)} 分钟 | ${row.start?.slice(5, 16)} → ${row.end?.slice(5, 16)} |`),
+  `| 工具 | 会话 | 子 agent | 模型调用 | token（含子 agent） | 主会话 token | 活跃 | 墙钟 | 起止 |`,
+  '|-|-|-|-|-|-|-|-|-|',
+  ...rows.map((row) => `| ${row.tool} | ${row.session} | ${row.subagents} | ${row.calls} | ${m(row.tokens)} | ${m(row.mainTokens)} | ${activeMinutes(row)} 分钟 | ${minutes(row)} 分钟 | ${row.start?.slice(5, 16)} → ${row.end?.slice(5, 16)} |`),
 ]
 const total = rows.reduce((sum, row) => sum + row.tokens, 0)
-const report = `\n## stats（${new Date().toISOString().slice(0, 16)}，最近 ${days} 天）\n\n${table.join('\n')}\n\n合计：${rows.length} 个会话，${m(total)} token\n`
+const report = `\n## stats（${new Date().toISOString().slice(0, 16)}，最近 ${days} 天）\n\n${table.join('\n')}\n\n合计：${rows.length} 个会话，${m(total)} token，活跃 ${rows.reduce((sum, row) => sum + activeMinutes(row), 0)} 分钟（相邻事件间隔 >10 分钟的部分不计）\n`
 console.log(report)
 if (!args.includes('--no-append')) {
   mkdirSync(join(homedir(), '.prd-cache', id), { recursive: true })
