@@ -352,7 +352,9 @@ if (cmd === 'run') {
     }
     const readLike = isReadLikePath(path)
     const devHost = DEV_WRITE_HOST.test(host)
-    if (WRITE.test(path) && !readLike && (!devHost || spec.strictWrites === true)) {
+    // 非 dev 域名：非 GET 默认拦截，只放行读形路径（动词黑名单会漏 audit/approve/confirm/publish/upload…）；dev 上 strictWrites 才拦写形路径
+    const blocked = devHost ? spec.strictWrites === true && WRITE.test(path) && !readLike : !readLike
+    if (blocked) {
       report.blockedWrites.push(`${method} ${req.url()}`)
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: '0', msg: 'blocked by browser.mjs (unmocked write)', data: null }) })
     }
@@ -403,13 +405,19 @@ if (cmd === 'run') {
     },
   }
 
-  if (spec.auth !== false && spec.authCheck !== false && !(await isLoggedIn(page, conf))) {
-    report.steps.push({ label: '登录态', ok: false, error: `登录态失效：运行 browser.mjs login --site ${name}` })
-  } else {
-    await spec.default(helpers)
+  // step 外抛出的异常（spec 顶层代码、goto 超时等）也要落进报告，并清理 profile 副本
+  try {
+    if (spec.auth !== false && spec.authCheck !== false && !(await isLoggedIn(page, conf))) {
+      report.steps.push({ label: '登录态', ok: false, error: `登录态失效：运行 browser.mjs login --site ${name}` })
+    } else {
+      await spec.default(helpers)
+    }
+  } catch (error) {
+    report.steps.push({ label: 'spec 异常（step 外）', ok: false, error: String(error?.message ?? error).split('\n')[0], screenshot: await shot('spec-error').catch(() => null) })
+  } finally {
+    await context.close().catch(() => {})
+    rmSync(copy, { recursive: true, force: true })
   }
-  await context.close()
-  rmSync(copy, { recursive: true, force: true })
 
   const failed = report.steps.filter((s) => !s.ok)
   writeFileSync(join(outDir, 'report.json'), `${JSON.stringify(report, null, 2)}\n`)

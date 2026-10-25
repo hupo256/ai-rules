@@ -20,10 +20,20 @@ const path = join(homedir(), 'github', id)
 const git = (...gitArgs) => execFileSync('git', gitArgs, { cwd: repo, encoding: 'utf8' }).trim()
 
 if (existsSync(path)) {
+  // 残留的普通目录（不是本仓库的 worktree）不能复用，也不能直接覆盖
+  const registered = git('worktree', 'list', '--porcelain').split('\n').some((line) => line === `worktree ${path}`)
+  if (!registered) {
+    console.error(`ERROR: ${path} 已存在但不是 ${repo} 的 worktree。确认里面没有要保留的内容后移走或删除再重跑。`)
+    process.exit(3)
+  }
   const current = execFileSync('git', ['branch', '--show-current'], { cwd: path, encoding: 'utf8' }).trim()
   const dirty = execFileSync('git', ['status', '--porcelain'], { cwd: path, encoding: 'utf8' }).trim()
   console.log(`reuse: ${path}\nbranch: ${current || '(detached)'}\ndirty: ${dirty ? 'yes' : 'no'}`)
-  if (current && current !== branch) console.log(`WARNING: expected ${branch}`)
+  // 分支不符时继续干活会把改动提交到别的需求/分支上
+  if (current !== branch) {
+    console.error(`ERROR: ${path} 当前在 ${current || '(detached)'}，本次期望 ${branch}。是同一需求就用 --branch ${current || '<分支>'} 重跑；不是就换项目号或问用户。`)
+    process.exit(3)
+  }
 } else {
   if (base.startsWith('origin/')) git('fetch', 'origin', base.slice('origin/'.length))
   // 远端已有同名分支：通常是历史实现或别人的分支，不要在其上叠加，提示后由用户决定
