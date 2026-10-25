@@ -189,14 +189,19 @@ function run({ base, files }) {
     .filter((file) => existsSync(resolve(root, file)) && statSync(resolve(root, file)).isFile())
     .sort()
 
+  // 新路径 → 旧路径：移动/改名的文件按旧路径比对，否则整份被当成新增
+  const renames = new Map(split(git(['diff', '--name-status', '-M', diffBase]))
+    .filter((line) => line.startsWith('R')).map((line) => line.split('\t')).map(([, from, to]) => [to, from]))
   const findings = []
   for (const file of changedFiles) {
     const content = readFileSync(resolve(root, file), 'utf8')
     const isNew = untracked.has(file)
-    const diff = isNew || !isTextTarget(file) ? '' : git(['diff', '-U0', '--no-ext-diff', diffBase, '--', file])
+    const from = renames.get(file)
+    const diffPaths = from ? ['-M', diffBase, '--', from, file] : [diffBase, '--', file]
+    const diff = isNew || !isTextTarget(file) ? '' : git(['diff', '-U0', '--no-ext-diff', ...diffPaths])
     const added = !isTextTarget(file) ? [] : isNew ? content.split('\n').map((text, index) => ({ line: index + 1, text })) : parseAddedLines(diff)
     // base 版本只有 300 行规则要用
-    const baseContent = isNew || !/\.tsx$/.test(file) ? '' : (git(['show', `${diffBase}:${file}`], { allowFailure: true }) ?? '')
+    const baseContent = isNew || !/\.tsx$/.test(file) ? '' : (git(['show', `${diffBase}:${from ?? file}`], { allowFailure: true }) ?? '')
     findings.push(...scanFile({ file, content, added, baseContent, changed: isNew || diff.trim() !== '' }))
   }
   return { ok: findings.length === 0, base, baseResolved, changedFiles, findings }

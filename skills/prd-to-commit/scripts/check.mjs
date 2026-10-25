@@ -20,7 +20,14 @@ const base = args.includes('--base') ? args[args.indexOf('--base') + 1] : 'origi
 const sh = (cmd, cmdArgs) => execFileSync(cmd, cmdArgs, { encoding: 'utf8' }).trim()
 
 const mergeBase = sh('git', ['merge-base', 'HEAD', base])
+// 新建文件先登记为 intent-to-add（冷读本来就要求 add -N）：之后统一走 git diff，`mv` 移动/拆分的文件才能按重命名比对，
+// 不会把整份文件（连同存量 tsc 错误、300 行等）当成本次新增
+const newFiles = sh('git', ['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean)
+if (newFiles.length) execFileSync('git', ['add', '-N', '--', ...newFiles])
 const untracked = sh('git', ['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean)
+// 新路径 → 旧路径
+const renames = new Map(sh('git', ['diff', '--name-status', '-M', mergeBase]).split('\n')
+  .filter((line) => line.startsWith('R')).map((line) => line.split('\t')).map(([, from, to]) => [to, from]))
 const changed = [...new Set([
   ...sh('git', ['diff', '--name-only', '--diff-filter=ACMR', mergeBase]).split('\n'),
   ...untracked,
@@ -35,7 +42,8 @@ console.log(`changed: ${changed.length} files (${code.length} code, ${legacy.len
 function changedLines(file) {
   if (untracked.includes(file)) return new Set(readFileSync(file, 'utf8').split('\n').map((_, i) => i + 1))
   const lines = new Set()
-  for (const [, start, count] of sh('git', ['diff', '-U0', mergeBase, '--', file]).matchAll(/^@@ -\S+ \+(\d+)(?:,(\d+))? @@/gm)) {
+  const paths = renames.has(file) ? ['-M', mergeBase, '--', renames.get(file), file] : [mergeBase, '--', file]
+  for (const [, start, count] of sh('git', ['diff', '-U0', ...paths]).matchAll(/^@@ -\S+ \+(\d+)(?:,(\d+))? @@/gm)) {
     for (let i = 0; i < Number(count ?? 1); i++) lines.add(Number(start) + i)
   }
   return lines
@@ -94,9 +102,11 @@ function runTsc(root, cwd) {
   return { errors, broken, tail: output.split('\n').slice(-15).join('\n') }
 }
 // 只按「文件 + TS 码」比：同一条存量错误在两次运行里打印的长类型（属性顺序、... N more ...）会不同，比全文会误报
-const errorKey = (line) => {
+// 当前侧的路径先映射回 base 上的旧路径，移动过的文件里的存量错误才能对上
+const errorKey = (line, current = false) => {
   const match = line.match(/^(.+?)\(\d+,\d+\): error (TS\d+)/)
-  return match ? `${match[1]} ${match[2]}` : line
+  if (!match) return line
+  return `${current ? (renames.get(match[1]) ?? match[1]) : match[1]} ${match[2]}`
 }
 
 if (tsRoots.length) {
@@ -131,8 +141,9 @@ if (tsRoots.length) {
     const remaining = new Map()
     for (const line of baseResult?.errors ?? []) remaining.set(errorKey(line), (remaining.get(errorKey(line)) ?? 0) + 1)
     const introduced = elsewhere.filter((line) => {
-      const left = remaining.get(errorKey(line)) ?? 0
-      if (left > 0) remaining.set(errorKey(line), left - 1)
+      const key = errorKey(line, true)
+      const left = remaining.get(key) ?? 0
+      if (left > 0) remaining.set(key, left - 1)
       return left === 0
     })
     if (onChangedLines.length || introduced.length) {
