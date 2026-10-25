@@ -2,6 +2,7 @@
 // 在 worktree 里按固定端口启动/停止/查看本地 dev server（站点配置见 browser-sites.json）。
 // usage: dev.mjs start|stop|status <worktree-path> --site web|admin|futures-admin|legacy-admin|futures-legacy-admin
 import { execSync, spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -52,8 +53,11 @@ if (cmd === 'status') {
 
 // public-hoist-pattern 把 @heroui/* 提升到根，新 worktree 可能提升成 web-next 的 3.x，apps/web 整站 500（R12/R15/R17-02172/R18-02306）。
 // start 时把根软链临时指向本 app 声明的版本，stop 时还原；只动 node_modules 软链，不碰受跟踪文件。
-const hoistLink = join(worktree, 'node_modules', '@heroui', 'react')
-const hoistBackup = join(stateDir, `${site}-${conf.port}.hoist`)
+// 备份按 worktree 区分：两个 worktree 交替启动同一站点时，接管方不会覆盖被接管方的备份
+const hoistLinkOf = (wt) => join(wt, 'node_modules', '@heroui', 'react')
+const hoistBackupOf = (wt) => join(stateDir, `${site}-${conf.port}-${createHash('sha1').update(wt).digest('hex').slice(0, 8)}.hoist`)
+const hoistLink = hoistLinkOf(worktree)
+const hoistBackup = hoistBackupOf(worktree)
 function fixHoist() {
   try {
     const want = JSON.parse(readFileSync(join(worktree, conf.app, 'package.json'), 'utf8')).dependencies?.['@heroui/react']
@@ -69,20 +73,28 @@ function fixHoist() {
     console.log(`hoist: 跳过（${e.message}）`)
   }
 }
-function restoreHoist() {
-  if (!existsSync(hoistBackup)) return
+function restoreHoist(wt = worktree) {
+  const backup = hoistBackupOf(wt)
+  if (!existsSync(backup)) return
   try {
-    unlinkSync(hoistLink)
-    symlinkSync(readFileSync(hoistBackup, 'utf8'), hoistLink)
-    console.log('hoist: 已还原根 @heroui/react')
+    unlinkSync(hoistLinkOf(wt))
+    symlinkSync(readFileSync(backup, 'utf8'), hoistLinkOf(wt))
+    console.log(`hoist: 已还原 ${wt} 的根 @heroui/react`)
   } catch (e) {
-    console.log(`hoist: 还原失败（${e.message}），备份在 ${hoistBackup}`)
+    console.log(`hoist: 还原失败（${e.message}），备份在 ${backup}`)
     return
   }
-  rmSync(hoistBackup, { force: true })
+  rmSync(backup, { force: true })
 }
 
 if (cmd === 'stop') {
+  // 只停自己 worktree 起的：端口被别的会话接管时，stop 不能把对方的 dev server 杀掉
+  const state = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) : null
+  if (state && state.worktree !== worktree) {
+    restoreHoist()
+    console.log(`not stopped: ${url} 现在属于 ${state.worktree}，不是 ${worktree}`)
+    process.exit(0)
+  }
   for (const pid of pidOnPort()) process.kill(Number(pid), 'SIGTERM')
   rmSync(stateFile, { force: true })
   restoreHoist()
@@ -135,17 +147,23 @@ if (cmd === 'start') {
 const appDir = join(worktree, conf.app)
 if (!existsSync(appDir)) throw new Error(`${appDir} 不存在`)
 const state = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) : null
+const wantMsw = process.env.NEXT_PUBLIC_ENABLE_MSW === 'true'
 if (pidOnPort().length) {
-  if (state?.worktree === worktree && (await waitReady(5000))) {
+  const ours = state?.worktree === worktree
+  // MSW 开关只在启动时读：已在跑的进程开关不同，直接复用会让 mock 不生效（或该真连接口时被 mock）
+  if (ours && Boolean(state.msw) === wantMsw && (await waitReady(5000))) {
     console.log(`already running: ${url}${conf.basePath}  (worktree ${worktree})`)
     process.exit(0)
   }
-  // --no-steal：多个会话并发验证时，不停掉别人的 dev server，交给调用方稍后重试
-  if (rest.includes('--no-steal')) {
-    console.log(`busy: ${url} 正被 ${state?.worktree ?? '未知 worktree'} 占用（--no-steal，未启动）`)
+  // 别的 worktree 占着：对方 worktree 已不存在或启动超过 2 小时才视为遗留、自动接管；否则可能是另一个会话正在验证
+  const stale = !state || !existsSync(state.worktree) || Date.now() - Date.parse(state.startedAt) > 2 * 3600000
+  if (!ours && (rest.includes('--no-steal') || (!stale && !rest.includes('--steal')))) {
+    console.log(`busy: ${url} 正被 ${state?.worktree ?? '未知进程'} 占用（启动于 ${state?.startedAt ?? '未知'}）。确认对方会话已结束后加 --steal 重跑；或用 P2C_PORT_OFFSET=<n> 换一组端口（无登录态，只适合 auth=false + mocks）`)
     process.exit(4)
   }
+  if (ours) console.log(`restarting: MSW ${state.msw ? 'on' : 'off'} → ${wantMsw ? 'on' : 'off'}`)
   for (const pid of pidOnPort()) process.kill(Number(pid), 'SIGTERM')
+  if (state && !ours) restoreHoist(state.worktree)
   await new Promise((r) => setTimeout(r, 2000))
 }
 if (conf.install && !existsSync(join(appDir, 'node_modules'))) {
@@ -159,7 +177,7 @@ const child = spawn('sh', ['-c', conf.start.replaceAll('{port}', String(conf.por
   env: { ...process.env, BROWSER: 'none' },
 })
 child.unref()
-writeFileSync(stateFile, `${JSON.stringify({ site, worktree, url, pid: child.pid, log, startedAt: new Date().toISOString() }, null, 2)}\n`)
+writeFileSync(stateFile, `${JSON.stringify({ site, worktree, url, pid: child.pid, log, msw: wantMsw, startedAt: new Date().toISOString() }, null, 2)}\n`)
 console.log(`starting ${site} in ${appDir} → ${url}${conf.basePath}  (log: ${log})`)
 if (!(await waitReady(300000))) {
   console.error(`dev server 5 分钟内未就绪，看日志：${log}`)
