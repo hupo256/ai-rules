@@ -40,7 +40,7 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 - **rsc-hooks-check.mjs**：引用链上任一节点改动就检查链尾；改动的 page/layout 新 import 一个未改动、含 hook 的文件现在会 FAIL，已有引用链归为存量。
 - **stats.mjs**：项目号按边界匹配（PR-0193 不再混入 PR-01930）；新增「活跃时长」（相邻事件间隔 >10 分钟不计），墙钟仍保留。
 - **环境**：online 2026-10-22 起 `packageManager` 为 pnpm 12.14.0（原生二进制），corepack 0.34/0.36 都起不来。本机已 `corepack disable pnpm` + `npm i -g pnpm@12.14.0`；README 前置条件已写明。
-- **仍未处理**：legacy 工程首次启动用 `npm install`，可能改写受跟踪的 package-lock.json（低频，遇到时 `git checkout` 还原）。
+- **dev.mjs（发版后补）**：legacy 工程首次启动的 `npm install` 若改写受跟踪的 package-lock.json，装完自动 `git checkout` 还原（不用 npm ci：旧锁文件不同步时会直接失败）。
 
 ## v1.6.1 — 2026-10-20
 

@@ -169,6 +169,13 @@ if (pidOnPort().length) {
 if (conf.install && !existsSync(join(appDir, 'node_modules'))) {
   console.log(`installing deps for ${site} (${conf.install}) ...`)
   execSync(conf.install, { cwd: appDir, stdio: 'inherit' })
+  // npm install 可能改写受跟踪的 package-lock.json，留着会混进 diff、冷读和提交；不用 npm ci（旧锁文件不同步时直接失败）
+  try {
+    if (execSync('git diff --name-only -- package-lock.json', { cwd: appDir, encoding: 'utf8' }).trim()) {
+      execSync('git checkout -- package-lock.json', { cwd: appDir })
+      console.log(`restored ${conf.app}/package-lock.json（npm install 改写了它）`)
+    }
+  } catch {}
 }
 fixHoist()
 const log = join(stateDir, portOffset ? `${site}-${conf.port}.log` : `${site}.log`)

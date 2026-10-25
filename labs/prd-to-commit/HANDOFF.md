@@ -1,6 +1,6 @@
 # prd-to-commit 交接（2026-10-25，v1.6.2）
 
-> 当前没有进行中的迭代。v1.6 已打 tag `prd-to-commit-v1.6`，结论见 [reports/2026-10-19-final-report.md](./reports/2026-10-19-final-report.md)；v1.6.1、v1.6.2 是正式使用前的两轮工具加固（[releases.md](./releases.md)），审查发现的工具缺陷已全部处理，剩余一条低频问题记在 v1.6.2 节。
+> 当前没有进行中的迭代。v1.6 已打 tag `prd-to-commit-v1.6`，结论见 [reports/2026-10-19-final-report.md](./reports/2026-10-19-final-report.md)；v1.6.1、v1.6.2 是正式使用前的两轮工具加固（[releases.md](./releases.md)），审查发现的工具缺陷已全部处理。
 
 ## 现状
 
