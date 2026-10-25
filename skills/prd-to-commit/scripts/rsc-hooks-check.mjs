@@ -56,8 +56,9 @@ for (const app of readdirSync(join(root, 'apps'))) {
     while (queue.length) {
       const [file, chain] = queue.shift()
       const code = read(file)
-      if (file !== entry && changed.has(file) && HOOK.test(code.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, ''))) {
-        problems.push({ file, chain })
+      // 链上任一节点是改动文件就检查链尾：改动的 layout 新 import 一个未改动、含 hook 的文件同样会整页 500
+      if (file !== entry && chain.some((f) => changed.has(f)) && HOOK.test(code.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, ''))) {
+        problems.push({ file, chain, srcRoot })
       }
       if (chain.length > 6) continue
       for (const [, typeOnly, spec] of code.matchAll(/(?:import|export)\s+(type\s)?[^'"]*?from\s+['"]([^'"]+)['"]/g)) {
@@ -83,9 +84,22 @@ const baseHasHook = (file) => {
     return [...hookNames(readFileSync(file, 'utf8'))].every((n) => base.has(n))
   } catch { return false }
 }
-const preExisting = problems.filter((p) => baseHasHook(p.file))
-for (const p of preExisting) console.log(`rsc-hooks: pre-existing（起点已有，不计 FAIL）${relative(root, p.file)}`)
-const uniq = new Map(problems.filter((p) => !baseHasHook(p.file)).map((p) => [p.file, p]))
+// 链尾没改动时，看链上「改动文件 → 下一个」这条 import 在起点是否已存在：都已存在才算存量
+const baseImports = (file, srcRoot) => {
+  try {
+    const code = execFileSync('git', ['show', `${mergeBase}:${relative(root, file)}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    return new Set([...code.matchAll(/(?:import|export)\s+(type\s)?[^'"]*?from\s+['"]([^'"]+)['"]/g)]
+      .filter(([, typeOnly]) => !typeOnly).map(([, , spec]) => resolveImport(spec, file, srcRoot)).filter(Boolean))
+  } catch { return new Set() }
+}
+const isPreExisting = ({ file, chain, srcRoot }) => {
+  if (changed.has(file)) return baseHasHook(file)
+  return chain.every((f, i) => i === chain.length - 1 || !changed.has(f) || baseImports(f, srcRoot).has(chain[i + 1]))
+}
+const preExisting = problems.filter(isPreExisting)
+const preFiles = [...new Set(preExisting.map((p) => relative(root, p.file)))]
+if (preFiles.length) console.log(`rsc-hooks: pre-existing ${preFiles.length} 个（起点已有，不计 FAIL）：${preFiles.slice(0, 5).join('，')}${preFiles.length > 5 ? ' …' : ''}`)
+const uniq = new Map(problems.filter((p) => !preExisting.includes(p)).map((p) => [p.file, p]))
 if (!uniq.size) {
   console.log('rsc-hooks: pass（服务端入口可达的改动文件里没有 hook 调用）')
 } else {
