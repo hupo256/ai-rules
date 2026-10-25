@@ -28,6 +28,20 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 - **PRD 少写校验条件时补一行还是并入已有项**（R18-02306）。
 - **02074 方差**：C7/C8/C11/C13/C14 轮换丢分，各轮 10–12/14，单列风险，不立规则。
 
+## v1.6.2 — 2026-10-25
+
+正式使用前的第二轮工具加固：修掉 v1.6.1 审查留下的全部 6 条，外加复读脚本新发现的 4 条，以及 online 升级 pnpm 12 带来的环境问题。不改流程与规则（SKILL.md 未动），未回放（原因见 [iteration-ledger.md](./iteration-ledger.md)）。计划与逐步验证记录见 [plans/2026-10-25-v1.6.2-hardening.md](./plans/2026-10-25-v1.6.2-hardening.md)。
+
+- **browser.mjs**：非 dev 域名的非 GET 默认拦截，只放行读形路径（原动词黑名单漏 approve/publish 等）；spec 在 step 外抛异常也写进报告并清理 profile 副本。
+- **worktree.mjs**：复用目录时分支不符、或目录不是本仓库 worktree，直接 `exit 3`（原来只警告，会在错误分支上继续干活）；装依赖失败时识别 pnpm 12 / corepack 问题并给出修法。
+- **fetch-prd.mjs**：先写临时目录、完整后 rename；有 `meta.json` 才算缓存命中，残缺目录移为 `.incomplete-*` 后重拉。
+- **dev.mjs**：端口被别的 worktree 占着时只接管遗留进程（对方 worktree 不存在或已启动 2 小时以上），否则返回 4，`--steal` 强制；`stop` 只停本 worktree 的服务（原来会杀端口上任何进程）；MSW 开关与在跑进程不同时自动重启；hoist 备份按 worktree 区分，接管时还原对方的软链。
+- **check.mjs / code-rules.mjs**：新建文件先 `git add -N`，统一走 `git diff -M`，移动/改名的文件按旧路径比对改动行、300 行基准与 tsc 存量错误（原来整份当新增，拆文件会报一堆存量问题）。
+- **rsc-hooks-check.mjs**：引用链上任一节点改动就检查链尾；改动的 page/layout 新 import 一个未改动、含 hook 的文件现在会 FAIL，已有引用链归为存量。
+- **stats.mjs**：项目号按边界匹配（PR-0193 不再混入 PR-01930）；新增「活跃时长」（相邻事件间隔 >10 分钟不计），墙钟仍保留。
+- **环境**：online 2026-10-22 起 `packageManager` 为 pnpm 12.14.0（原生二进制），corepack 0.34/0.36 都起不来。本机已 `corepack disable pnpm` + `npm i -g pnpm@12.14.0`；README 前置条件已写明。
+- **仍未处理**：legacy 工程首次启动用 `npm install`，可能改写受跟踪的 package-lock.json（低频，遇到时 `git checkout` 还原）。
+
 ## v1.6.1 — 2026-10-20
 
 正式使用前的整体审查修复。不改流程与规则，未回放（原因见 [iteration-ledger.md](./iteration-ledger.md)）。

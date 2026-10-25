@@ -1,10 +1,10 @@
-# prd-to-commit 交接（2026-10-20，v1.6.1）
+# prd-to-commit 交接（2026-10-25，v1.6.2）
 
-> 当前没有进行中的迭代。v1.6 已打 tag `prd-to-commit-v1.6`，结论见 [reports/2026-10-19-final-report.md](./reports/2026-10-19-final-report.md)；v1.6.1 是正式使用前的工具修复（[releases.md](./releases.md)），审查发现但未修的条目也记在那一节。
+> 当前没有进行中的迭代。v1.6 已打 tag `prd-to-commit-v1.6`，结论见 [reports/2026-10-19-final-report.md](./reports/2026-10-19-final-report.md)；v1.6.1、v1.6.2 是正式使用前的两轮工具加固（[releases.md](./releases.md)），审查发现的工具缺陷已全部处理，剩余一条低频问题记在 v1.6.2 节。
 
 ## 现状
 
-- 接入：`~/.claude/skills/prd-to-commit` 与 `~/.codex/skills/prd-to-commit` 都已软链（2026-10-09 起）；tag v1.0–v1.6.1 已推到 GitHub。接入方法与注意事项见仓库根 [README.md](../../README.md)。
+- 接入：`~/.claude/skills/prd-to-commit` 与 `~/.codex/skills/prd-to-commit` 都已软链（2026-10-09 起）；tag v1.0–v1.6.2 已推到 GitHub。接入方法与注意事项见仓库根 [README.md](../../README.md)。
 - skill：`~/.ai-rules/skills/prd-to-commit/`，SKILL.md 139 行、18407 字节（上限 18432，再加规则先压缩）。
 - 回放基准 11 个（`replay/PR-*.md`、`replay/tools/bench.json`、PRD 快照 `~/.prd-cache/REPLAY-<号>/`）。v1.6 成绩 139/148，陷阱 0；逐轮数据在 [iteration-ledger.md](./iteration-ledger.md) R11–R19。
 - 回放 worktree 与 fameex-web 本地 `replay/R*` 分支（45 个，从未 push）已全部删除；回放代码不再保留，成绩与失分分析以台账和 results 为准。
@@ -12,7 +12,7 @@
 
 ## 下一步
 
-1. 用 v1.6 跑真实新需求，按观察期要求记录提测缺陷分类与 stats 数据。
+1. 用 v1.6.2 跑真实新需求，按观察期要求记录提测缺陷分类与 stats 数据。
 2. 观察清单（[releases.md](./releases.md)）里的条目再出现一次且能回放复现，就立规则；改完回放受影响的基准再发版。
 
 ## 跑回放的要点（下次迭代用）

@@ -2,7 +2,7 @@
 // 建立或复用 ~/github/<PROJECT-ID> worktree（默认 feature/<ID>，--fix 用 fix/<ID>，--branch 自定义），按需安装依赖。
 // usage: worktree.mjs <PROJECT-ID> [--fix | --branch <name>] [--base origin/online] [--repo ~/github/fameex-web] [--skip-install]
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -50,6 +50,15 @@ if (existsSync(path)) {
 
 if (!args.includes('--skip-install') && !existsSync(join(path, 'node_modules'))) {
   console.log('installing deps (pnpm install --prefer-offline)...')
-  execFileSync('pnpm', ['install', '--prefer-offline', '--frozen-lockfile'], { cwd: path, stdio: 'inherit' })
+  try {
+    execFileSync('pnpm', ['install', '--prefer-offline', '--frozen-lockfile'], { cwd: path, stdio: 'inherit' })
+  } catch {
+    // online 2026-10-22 起 packageManager 是 pnpm 12（原生二进制发行），corepack 起不来（找 bin/pnpm.cjs）
+    const pm = JSON.parse(readFileSync(join(path, 'package.json'), 'utf8')).packageManager ?? ''
+    const version = pm.match(/^pnpm@([\d.]+)/)?.[1]
+    console.error(`ERROR: 依赖安装失败。若上面报 Cannot find module …/corepack/…/pnpm.cjs，是 corepack 不支持 pnpm ${version ?? '12+'}：` +
+      `执行 \`corepack disable pnpm && npm i -g pnpm@${version ?? 'latest'}\` 后重跑（pnpm 会按各分支的 packageManager 自动切版本）。`)
+    process.exit(1)
+  }
 }
 console.log(`base: ${execFileSync('git', ['merge-base', 'HEAD', base], { cwd: path, encoding: 'utf8' }).trim()}`)

@@ -43,7 +43,7 @@ done
 | 依赖 | 要求 |
 |---|---|
 | Node | ≥ 22（脚本需要全局 WebSocket） |
-| pnpm | 装 fameex-web 依赖 |
+| pnpm | 全局装 `npm i -g pnpm@12`（online 2026-10-22 起要求 pnpm 12.14.0，corepack 起不来，需先 `corepack disable pnpm`）；旧分支会按 packageManager 自动切版本 |
 | `lark-cli` | 以本人身份登录，并且对 PRD 文档有阅读权限 |
 | `~/github/fameex-web` | 业务仓库主 checkout，能 fetch `origin` |
 | Google Chrome | 装在 `/Applications`，用于手动登录 |
@@ -206,11 +206,11 @@ done
 
 ### 浏览器验证
 
-- 所有站点连 **dev 环境（pfyys）**，dev 上的写操作默认**真实执行**，交付说明会列出改了哪些 dev 数据。发往其他环境的写操作和所有登出请求一律拦截。不想动 dev 数据时，在 spec 里设 `strictWrites = true`，或者给接口写 mock。
+- 所有站点连 **dev 环境（pfyys）**，dev 上的写操作默认**真实执行**，交付说明会列出改了哪些 dev 数据。发往其他环境的非 GET 请求（读形路径除外）和所有登出请求一律拦截。不想动 dev 数据时，在 spec 里设 `strictWrites = true`，或者给接口写 mock。
 - 需要登录的站点只有三个：`web`、`web-next`、`legacy-admin`。Next 后台和合约后台复用 legacy-admin 的 token，legacy-admin 登录后要先对它跑一次 `browser.mjs check`，另外两个后台才能拿到 token。
 - 登录态按环境区分，换环境就要重新登录。不要尝试自动登录或绕过验证码。
 - 16G 内存的机器同时最多开 4 个 dev server（`~/.config/prd-to-commit/dev/max-dev`），3 个以上 Next dev 同时冷启动容易卡死。
-- `dev.mjs start` 默认会停掉其他 worktree 占着同一端口的 dev server。两个需求会话同时验证同一站点时，加 `P2C_PORT_OFFSET` 或 `--no-steal`。
+- 两个需求会话同时验证同一站点时，后来者的 `dev.mjs start` 会返回 4（`busy`），不会停掉对方的 dev server；确认对方已结束再加 `--steal`，或用 `P2C_PORT_OFFSET` 换一组端口。
 
 ### 交付物的局限
 
@@ -223,13 +223,6 @@ done
 
 - **Codex CLI 沙箱**：`.git` 是只读的，提交会被打成 bundle 交回；沙箱里也不能监听端口，dev server 要在沙箱外起。Codex 桌面 App 没有这两个限制。
 - **Lark 历史版本**：拉历史版本需要文档编辑权限，拉最新版不受影响。
-
-### 已知未修的工具缺陷
-
-不影响单个需求按流程正常跑完，详见 [releases.md](labs/prd-to-commit/releases.md) v1.6.1 节。
-- `fetch-prd` 中途失败后，重跑会用到表格未展开的缓存。遇到时删掉 `~/.prd-cache/<ID>/r<rev>/` 重拉。
-- 复用 worktree 时如果分支不对，`worktree.mjs` 只警告、不退出。
-- 重命名或移动的文件会被当成整份新增来检查，可能报出原有问题。
 
 ### 其他
 
