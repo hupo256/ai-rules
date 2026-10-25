@@ -2,7 +2,7 @@
 // 拉取 Lark PRD 一次并落盘：prd.md（阅读用，内嵌表格原位展开）、prd.xml（带 block id，回查用）、media/（全部图片/画板）、sheets/（内嵌表格 CSV）。
 // usage: fetch-prd.mjs <PROJECT-ID> <lark-url> [--revision <N>]
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -43,11 +43,16 @@ function fetchDoc(format, detail) {
 
 const xmlDoc = fetchDoc('xml', 'with-ids')
 const rev = String(xmlDoc.revision_id)
-const dir = join(homedir(), '.prd-cache', id, `r${rev}`)
-if (existsSync(join(dir, 'prd.md'))) {
-  console.log(`cached: ${dir}`)
+const finalDir = join(homedir(), '.prd-cache', id, `r${rev}`)
+// meta.json 最后写：有它才算完整。旧版本可能留下只有 prd.md（表格未展开）的半成品目录，移到旁边重拉
+if (existsSync(join(finalDir, 'meta.json'))) {
+  console.log(`cached: ${finalDir}`)
   process.exit(0)
 }
+if (existsSync(finalDir)) renameSync(finalDir, `${finalDir}.incomplete-${Date.now()}`)
+// 先写临时目录，全部完成后再改名，中途失败不会留下看似完整的缓存
+const dir = `${finalDir}.tmp-${process.pid}`
+rmSync(dir, { recursive: true, force: true })
 mkdirSync(join(dir, 'media'), { recursive: true })
 writeFileSync(join(dir, 'prd.xml'), xmlDoc.content)
 writeFileSync(join(dir, 'prd.md'), fetchDoc('markdown', 'simple').content)
@@ -99,6 +104,7 @@ const unexpanded = [...new Set([...xmlDoc.content.matchAll(/<(bitable|iframe|syn
 writeFileSync(join(dir, 'meta.json'), `${JSON.stringify({
   id, url, documentId: xmlDoc.document_id, revision: rev, fetchedAt: new Date().toISOString(), media, sheets, unexpanded, failed,
 }, null, 2)}\n`)
-console.log(`saved: ${dir}\nrevision: ${rev}\nmedia: ${media.length} ok, sheets: ${sheets.length} ok, ${failed.length} failed`)
+renameSync(dir, finalDir)
+console.log(`saved: ${finalDir}\nrevision: ${rev}\nmedia: ${media.length} ok, sheets: ${sheets.length} ok, ${failed.length} failed`)
 if (unexpanded.length) console.log(`WARNING: 未展开的嵌入类型 ${unexpanded.join(', ')}，需人工查看`)
 if (failed.length) process.exitCode = 2
