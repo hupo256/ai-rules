@@ -7,6 +7,7 @@ skill 本体在 [`~/.ai-rules/skills/prd-to-commit/`](../../skills/prd-to-commit
 | [replay/](./replay/README.md) | 回放基准（评分标准）、历次结果与回放工具链 |
 | [releases.md](./releases.md) | 发版台账：每个 tag 改了什么、为什么、凭什么放行 |
 | [iteration-ledger.md](./iteration-ledger.md) | 逐轮回放的得分、耗时、token |
+| [real-runs/](./real-runs/) | 真实需求实跑数据（观察期）：时间线、成本、冷读/浏览器发现归类、偏离 skill 的点 |
 | [usage.md](./usage.md) | 给人看的使用说明与预期效果 |
 | [reports/](./reports/) | 某一时点的评估与报告，写成后不再改 |
 | [decisions/](./decisions/README.md) | 新需求默认流程的决策记录 |
