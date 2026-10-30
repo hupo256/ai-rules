@@ -12,7 +12,7 @@
 
 ## 下一步
 
-1. 用 v1.6.2 跑真实新需求，按观察期要求记录提测缺陷分类与 stats 数据。进度 3/5：PR-02418（10-29，只经手不提测，`feature/PR-02418-p2c` c1808e5747）、PR-01723（10-30，`feature/PR-01723` 5e5e216795）、PR-02374（10-30，`feature/PR-02374` 0dc80fc294）；数据见 [real-runs/](./real-runs/)。三个都只在本地，未 push；PR-01723、PR-02374 提测后补录缺陷分类。候选需求来源：前端看板（见 `~/.prd-cache/_real-run-candidates.md`）。下一个需求开始前先 `git ls-remote origin 'feature/<ID>*'` 确认远端干净。
+1. 用 v1.6.2 跑真实新需求，按观察期要求记录提测缺陷分类与 stats 数据。进度 8/5（已超额，可开始评估立规则）：10-30 晚又并行跑了 5 个（PR-01549 fe0a53ec36、PR-02634 a0bd7bfd07、PR-02012 fbfc9564c2、PR-02127 ce4a626dc5、PR-02254 6f60259329，均 `feature/<ID>-p2c` 本地分支），其中 3 个做了人工对照，见 [real-runs/2026-10-30-batch5.md](./real-runs/2026-10-30-batch5.md)；此前：PR-02418（10-29，只经手不提测，`feature/PR-02418-p2c` c1808e5747）、PR-01723（10-30，`feature/PR-01723` 5e5e216795）、PR-02374（10-30，`feature/PR-02374` 0dc80fc294）；数据见 [real-runs/](./real-runs/)。三个都只在本地，未 push；PR-01723、PR-02374 提测后补录缺陷分类。候选需求来源：前端看板（见 `~/.prd-cache/_real-run-candidates.md`）。下一个需求开始前先 `git ls-remote origin 'feature/<ID>*'` 确认远端干净。
 2. 观察清单（[releases.md](./releases.md)）里的条目再出现一次且能回放复现，就立规则；改完回放受影响的基准再发版。
 
 ## 跑回放的要点（下次迭代用）

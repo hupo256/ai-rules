@@ -46,6 +46,16 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 - **i18n 草稿合并**（PR-02374，正面做法）：并行子 agent 各写 `i18n-<批>.json`，主会话合并，0 冲突。候选写进 §3.5。
 - **macOS 无 `timeout` 命令**：主会话 `timeout … tsc` 实际未执行、空输出被误读为通过。候选：check.mjs 是唯一类型检查入口（工具纪律）。
 
+以下来自 5 需求并行实跑（2026-10-30，[real-runs/2026-10-30-batch5.md](./real-runs/2026-10-30-batch5.md)）：
+- **目标工程/应用选错**（**3 次**：PR-01549、PR-02634 同事在 apps/web-next，我们在 apps/web；PR-02012 同事新建独立应用，我们内嵌 apps/web）。已超过门槛；回放可复现（01549/02634 的 base 中 web-next 已是活跃面）。候选（§2 前置 + fameex.md）：目标工程判定（online 近期提交活跃度、首页入口工程、同模块在途分支），判定不了列阻塞问题，直接做模式在交付说明首行标出。
+- **React 19 运行时不兼容**（**2 次**：PR-02374 react-quill 白屏、PR-02254 antd 静态 message 不渲染）。候选（fameex.md 运行时坑）：apps 实际运行 React 19，依赖 findDOMNode 的组件、antd 静态方法（message/Modal 静态调用）不可用，用 `@/utils` 的 message 与 hooks 版。
+- **MSW cherry-pick 与公平性冲突**（3 次：01549、02634、02012）。候选（§5/fameex.md）：base 无 MSW 基建且不能引入时，一律用浏览器 spec mocks，记 not-required。
+- **stats.mjs 统计为 0**（7 次）。候选（工具）：按 `~/.prd-cache/<ID>` 路径或 worktree 路径出现区间匹配，支持 agent 模式 cwd。
+- **续跑子 agent usage 累计/单段不明**（3 次）。候选（§6/run-log 说明）：SendMessage 续跑的 usage 为累计值，记录时取差值。
+- **base 已含同名需求实现**（2 次：PR-02127、PR-02254）。候选（§2）：开工前查 base 历史是否已有该需求提交；有则进入「PRD 复核补缺」模式（清单记已兼容/改，冷读提示声明已有实现）。
+- **接口占位镜像同类契约时被裁剪**（PR-02634、PR-01549）。候选（§2）：有同类契约时整份照搬全部字段，只换业务段。
+- **编排侧筛选判据**：「分支领先 online 0 提交」= 已合入，不是空分支（编排方错误，1 次）。
+
 ## v1.6.2 — 2026-10-25
 
 正式使用前的第二轮工具加固：修掉 v1.6.1 审查留下的全部 6 条，外加复读脚本新发现的 4 条，以及 online 升级 pnpm 12 带来的环境问题。不改流程与规则（SKILL.md 未动），未回放（原因见 [iteration-ledger.md](./iteration-ledger.md)）。计划与逐步验证记录见 [plans/2026-10-25-v1.6.2-hardening.md](./plans/2026-10-25-v1.6.2-hardening.md)。
