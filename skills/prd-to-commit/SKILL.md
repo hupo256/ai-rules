@@ -35,7 +35,7 @@ node $S/fetch-prd.mjs <ID> <lark-url>          # → ~/.prd-cache/<ID>/r<rev>/{p
 - 完整读 `prd.md`。图片（`media/`、Figma 预览）超过 5 张时先派 1 个子 agent 逐张转写（否则自己看）到 `~/.prd-cache/<ID>/media-notes.md`：每张写对应 PRD 位置、页面/状态、**全部可见文字逐字**、红框/标注、与正文的冲突。notes 开头先列每图一行摘要。主会话读 notes 建清单；**编码某页面 UI 前必须看对应原图**核对位置、锚点与布局。之后只在疑点处回查本地文件，不重拉。
 - 内嵌表格会自动导出到 `sheets/`，并在 prd.md 里原位展开成 csv 块，要和正文一起读完。附件（HTML/PDF 原型）下载到 `attachments/`，prd.md 原位有标记，只当文本读。`meta.json.unexpanded` 列出的多维表格、iframe 等需要人工查看。
 - `meta.json.failed` 非空或 Figma/原型读不到：告诉用户缺什么，继续其余部分。
-- 用户另给的输入（接口契约、YApi、附件、Figma）存 `~/.prd-cache/<ID>/inputs/`，清单、编码、冷读都要引用。
+- 用户另给的输入（接口契约、YApi、附件、Figma）存 `~/.prd-cache/<ID>/inputs/`（仓内文件按原路径存，如 `inputs/apps/web/src/types/financeProduct.ts`，同名文件会互相覆盖），清单、编码、冷读都要引用。
 - 用户直接贴正文时，把正文存为 `~/.prd-cache/<ID>/manual/prd.md`。
 
 ## 2. 需求清单 `~/.prd-cache/<ID>/checklist.md`
