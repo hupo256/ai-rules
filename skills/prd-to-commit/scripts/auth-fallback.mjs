@@ -91,6 +91,7 @@ export async function fakeLoginWithPublicCache(page, goto, warmPath, { mocks = [
 // 侧栏、路由兜底、按钮级权限都由 /operate-api/menus 返回的 actionList / actionY 决定（Next 后台按 localStorage.ADMIN_ACTIONY 的 indexOf 判断）。
 // items 照兄弟页面登记的 menus 写：{ id, parentId, atName, atUrl, atDes, atType: 1, sortCode }，按钮级权限 atType -1、atName 为接口路径；
 // 必须含到达目标页的整条菜单链（父 → 子 → 页），只给 '*' 到不了页面。
+// 注意：合约后台 futures-legacy-admin 的 menus 结构不同（`{ navList, menuList, actionList: { [atName]: [] } }`，R23-02127），这两个 helper 只适用 Next 后台/现货 legacy，合约后台照兄弟页面的真实响应手写 mock。
 export const adminMenus = (items) => ({ actionList: items, actionY: items.map((item) => item.atName).join(',') })
 export const adminAuthMocks = (items) => [
   { url: /\/operate-api\/menus/, json: ok(adminMenus(items)) },

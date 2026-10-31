@@ -68,5 +68,10 @@
     "base": "f9309e9fe0",
     "prd": "~/.prd-cache/REPLAY-01549/r327",
     "scope": "只做 C 端前端：目标工程在 apps/web 与 apps/web-next 之间由你按 skill 规则判定并写明依据；App 原生、后台、后端不做；i18n 只写 zh-CN。接口契约 PRD 未给，按 skill 规则处理（仓内已有下单/条件单接口可作候选契约；镜像时整份照搬字段）。"
+  },
+  "PR-02127": {
+    "base": "f9309e9fe0",
+    "prd": "~/.prd-cache/REPLAY-02127/r59",
+    "scope": "合约后台 legacy（apps/futures-admin/legacy-admin）跟单分润列表与明细；base 已含该需求首轮实现及之后的修复（按 skill §0「复核补缺」模式处理，回放里视同 preflight 返回 20）；后端不做。允许按 skill 规则用 fetch-prd.mjs 拉取 PRD 内链接的源文档（项目号用 <RUN>-src）；允许查看 base 及其祖先中与本需求相关的提交（git log --grep），仍不得查看 base 之后的历史。"
   }
 }

@@ -5,8 +5,8 @@
 ## 工程归属
 - 后台页面有两套：Next（`apps/admin/src`、`apps/futures-admin/src`）和 Vue2 legacy（`apps/*/legacy-admin`）。新页面跟随同一菜单分组的兄弟页面放（PR-02208）。改既有页面时，两套都要搜（PR-01930 C13/C15）。
 - 后台菜单由后端 `/operate-api/menus` 下发。新页面要**照兄弟页面一样登记** `routes`、`siderItems`（兜底与登录后跳转都依赖它）、`contentSettings`、权限点；同时在交付说明里提醒后端登记菜单。禁止的是篡改/注入 menus 接口返回数据（PR-02208 历史实现的 `injectXxxMenu`）。
-- **C 端目标工程判定**（PR-01549、02634、02012 三次与同事选的不同，是最大风险）：同一业务在 apps/web 与 apps/web-next 都有实现、或 PRD 写「独立系统/新站点」时，先定目标再找落点。判据：① `git log --since=2.months origin/online -- apps/web/src/<模块> apps/web-next/src/<模块>` 比提交数（2026-10：合约 web-next 593 vs web 66，活动页新页也在 web-next；资产/账单/帮助中心仍在 web）；② 首页入口链接指向哪个工程；③ 同模块远端在途分支改的是哪边。独立系统有先例 `apps/business-system`（TanStack Start + antd，自带会话/签名/Docker）——PRD 写「独立系统」时「独立应用 vs 内嵌」列为阻塞问题。定不了就问用户；直接做模式写在交付说明首行。
-- **base 已含同需求实现**（preflight 结论「已合入」，PR-02127/02254）：按「复核补缺」做，清单每行先核 base 现状，常见偏差是首轮删掉的列、截断的负值、按钮 disabled 导致提示永不出现。
+- **C 端目标工程判定**（PR-01549、02634、02012 三次与同事选的不同，是最大风险）：同一业务在 apps/web 与 apps/web-next 都有实现、或 PRD 写「独立系统/新站点」时，先定目标再找落点。判据：① `git log --since=2.months origin/online -- apps/web/src/<模块> apps/web-next/src/<模块>` 比提交数（2026-10：合约 web-next 593 vs web 66，活动页新页也在 web-next；资产/账单/帮助中心仍在 web）；② 首页入口链接指向哪个工程；③ 同模块远端在途分支改的是哪边。独立系统有先例 `apps/business-system`（TanStack Start + antd，自带会话/签名/Docker）——PRD 写「独立系统」时「独立应用 vs 内嵌」列为阻塞问题。问用户时一并写明两种选择的代价（PR-02012 QA 对照）：**新工程/独立应用**要把被替代页面的存量交互逐项列进清单（排序、成功提示、百分比格式、筛成空后清空列表——同事因重写踩了 8 条）；**内嵌复用**要在浏览器里验被复用组件在新场景的边缘态（单日单点图表、负值、空列表），存量缺陷会一起带进来。定不了就问用户；直接做模式写在交付说明首行。
+- **base 已含同需求实现**（preflight 结论「已合入」，PR-02127/02254）：按「复核补缺」做（SKILL §0）。先 `git log --grep <ID> <base>` 看首轮与之后的修复提交，再 `bugs.mjs <ID>` 看 QA 报过什么——**首轮之后被删的列、被统一的默认值多半是 QA/产品后来的决定，不要当偏差改回去**（PR-02127 恢复了 QA 后删除的列、PR-02254 回退了已统一的默认时间，两次都判错）。真正值得补的是 QA 用例没覆盖的小项（无备注时的兜底显示、React 19 下提示不出现、筛选后分页回第 1 页）。
 - legacy-admin 不在 biome 和 tsc 的覆盖范围内。check.mjs 只能做语法检查，模板要靠浏览器或人工核对。在 legacy 里删除/改名方法或变量后，必须全仓 grep 残留引用（包括模板里的 `@click`/插值），没有 tsc 兜底（PR-02265 R3：validateForm 调用已删方法，保存直接报错）。
 
 ## web-next（apps/web-next，Vite + TanStack Start + Effect）

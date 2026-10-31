@@ -1,6 +1,6 @@
-# prd-to-commit 交接（2026-10-31，v1.8-rc）
+# prd-to-commit 交接（2026-10-31，v1.9）
 
-> v1.7 已发布并推送（tag `prd-to-commit-v1.7`）。v1.8 已发布（tag `prd-to-commit-v1.8`），依据 [plans/2026-10-31-v1.8-plan.md](./plans/2026-10-31-v1.8-plan.md)；PR-01723 / PR-02374 仍只在本地，待用户 push/建 MR 后提测。
+> v1.9 已发布（tag `prd-to-commit-v1.9`，依据 4 个需求的真实 QA bug 对照，[plans/2026-10-31-v1.9-plan.md](./plans/2026-10-31-v1.9-plan.md)）。v1.7 已发布并推送（tag `prd-to-commit-v1.7`）。v1.8 已发布（tag `prd-to-commit-v1.8`），依据 [plans/2026-10-31-v1.8-plan.md](./plans/2026-10-31-v1.8-plan.md)；PR-01723 / PR-02374 仍只在本地，待用户 push/建 MR 后提测。
 > 旧状态（v1.6.2）：v1.6 已打 tag `prd-to-commit-v1.6`，结论见 [reports/2026-10-19-final-report.md](./reports/2026-10-19-final-report.md)；v1.6.1、v1.6.2 是正式使用前的两轮工具加固（[releases.md](./releases.md)），审查发现的工具缺陷已全部处理。
 
 ## 现状
