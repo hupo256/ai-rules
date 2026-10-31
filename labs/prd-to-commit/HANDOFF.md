@@ -1,6 +1,6 @@
 # prd-to-commit 交接（2026-10-31，v1.8-rc）
 
-> v1.7 已发布并推送（tag `prd-to-commit-v1.7`）。v1.8 已发布（tag `prd-to-commit-v1.8`），依据 [plans/2026-10-31-v1.8-plan.md](./plans/2026-10-31-v1.8-plan.md)；PR-01723 / PR-02374 分支已 push 待 MR 与 QA。
+> v1.7 已发布并推送（tag `prd-to-commit-v1.7`）。v1.8 已发布（tag `prd-to-commit-v1.8`），依据 [plans/2026-10-31-v1.8-plan.md](./plans/2026-10-31-v1.8-plan.md)；PR-01723 / PR-02374 仍只在本地，待用户 push/建 MR 后提测。
 > 旧状态（v1.6.2）：v1.6 已打 tag `prd-to-commit-v1.6`，结论见 [reports/2026-10-19-final-report.md](./reports/2026-10-19-final-report.md)；v1.6.1、v1.6.2 是正式使用前的两轮工具加固（[releases.md](./releases.md)），审查发现的工具缺陷已全部处理。
 
 ## 现状
@@ -13,7 +13,7 @@
 
 ## 下一步
 
-0. PR-01723 / PR-02374 提测后 `node $S/bugs.mjs <ID>` 拉 bug，归类进 real-runs（S8）。新实跑用 `node $S/launch.mjs <ID> <url> --mode direct --offset <n>` 一条命令准备，再派 Opus agent 读生成的 prompt。提测后用 `node $S/bugs.mjs <ID>` 拉 QA bug。
+0. PR-01723 / PR-02374 由用户 push/建 MR 提测；QA 后 `node $S/bugs.mjs <ID>` 拉 bug，归类进 real-runs（S8）。新实跑用 `node $S/launch.mjs <ID> <url> --mode direct --offset <n>` 一条命令准备，再派 Opus agent 读生成的 prompt。提测后用 `node $S/bugs.mjs <ID>` 拉 QA bug。
 1. 用 v1.8 跑真实新需求，按观察期要求记录提测缺陷分类与 stats 数据。进度 8/5（已超额，可开始评估立规则）：10-30 晚又并行跑了 5 个（PR-01549 fe0a53ec36、PR-02634 a0bd7bfd07、PR-02012 fbfc9564c2、PR-02127 ce4a626dc5、PR-02254 6f60259329，均 `feature/<ID>-p2c` 本地分支），其中 3 个做了人工对照，见 [real-runs/2026-10-30-batch5.md](./real-runs/2026-10-30-batch5.md)；此前：PR-02418（10-29，只经手不提测，`feature/PR-02418-p2c` c1808e5747）、PR-01723（10-30，`feature/PR-01723` 5e5e216795）、PR-02374（10-30，`feature/PR-02374` 0dc80fc294）；数据见 [real-runs/](./real-runs/)。三个都只在本地，未 push；PR-01723、PR-02374 提测后补录缺陷分类。候选需求来源：前端看板（见 `~/.prd-cache/_real-run-candidates.md`）。下一个需求开始前先 `git ls-remote origin 'feature/<ID>*'` 确认远端干净。
 2. 观察清单（[releases.md](./releases.md)）里的条目再出现一次且能回放复现，就立规则；改完回放受影响的基准再发版。
 
