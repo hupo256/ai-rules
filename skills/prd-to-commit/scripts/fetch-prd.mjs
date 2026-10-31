@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// 拉取 Lark PRD 一次并落盘：prd.md（阅读用，内嵌表格原位展开）、prd.xml（带 block id，回查用）、media/（全部图片/画板）、sheets/（内嵌表格 CSV）。
-// usage: fetch-prd.mjs <PROJECT-ID> <lark-url> [--revision <N>]
+// 拉取 Lark PRD 一次并落盘：prd.md（阅读用，内嵌表格原位展开）、prd.xml（带 block id，回查用）、media/（全部图片/画板）、sheets/（内嵌表格 CSV）、attachments/（文件附件，如 HTML 原型）。
+// usage: fetch-prd.mjs <PROJECT-ID> <lark-url> [--revision <N>] [--refetch]
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -8,7 +8,7 @@ import { join } from 'node:path'
 
 const [id, url, ...rest] = process.argv.slice(2)
 if (!id || !url) {
-  console.error('usage: fetch-prd.mjs <PROJECT-ID> <lark-url> [--revision <N>]')
+  console.error('usage: fetch-prd.mjs <PROJECT-ID> <lark-url> [--revision <N>] [--refetch]')
   process.exit(1)
 }
 const revIndex = rest.indexOf('--revision')
@@ -45,11 +45,11 @@ const xmlDoc = fetchDoc('xml', 'with-ids')
 const rev = String(xmlDoc.revision_id)
 const finalDir = join(homedir(), '.prd-cache', id, `r${rev}`)
 // meta.json 最后写：有它才算完整。旧版本可能留下只有 prd.md（表格未展开）的半成品目录，移到旁边重拉
-if (existsSync(join(finalDir, 'meta.json'))) {
+if (existsSync(join(finalDir, 'meta.json')) && !rest.includes('--refetch')) {
   console.log(`cached: ${finalDir}`)
   process.exit(0)
 }
-if (existsSync(finalDir)) renameSync(finalDir, `${finalDir}.incomplete-${Date.now()}`)
+if (existsSync(finalDir)) renameSync(finalDir, `${finalDir}.${rest.includes('--refetch') ? 'old' : 'incomplete'}-${Date.now()}`)
 // 先写临时目录，全部完成后再改名，中途失败不会留下看似完整的缓存
 const dir = `${finalDir}.tmp-${process.pid}`
 rmSync(dir, { recursive: true, force: true })
@@ -74,10 +74,31 @@ for (const [, kind, token] of xmlDoc.content.matchAll(tag)) {
   }
 }
 
+let markdown = readFileSync(join(dir, 'prd.md'), 'utf8')
+
+// 文件附件（<figure><source name token>，常见为 HTML 原型/PDF）：下载到 attachments/，并在 prd.md 原位标出路径。
+// PRD 常写「以原型为准」，漏掉附件等于漏掉需求来源（PR-02374/02634/02012 三次靠手动补拉）
+const attachments = []
+mkdirSync(join(dir, 'attachments'), { recursive: true })
+const figureTag = /<figure\b[^>]*>\s*<source\b[^>]*?\bname="([^"]*)"[^>]*?\btoken="([\w-]+)"[^>]*\/?>\s*(?:<\/source>)?\s*<\/figure>/g
+let attachmentIndex = 0
+for (const [, rawName, token] of xmlDoc.content.matchAll(figureTag)) {
+  const name = rawName.replace(/[^\w.\u4e00-\u9fff-]+/g, '_')
+  const file = `attachments/${String(++attachmentIndex).padStart(2, '0')}-${name}`
+  try {
+    // drive media 下载走 open-api；lark-cli 只接受相对 --output 路径（绝对路径静默失败）
+    lark(['api', 'GET', `/open-apis/drive/v1/medias/${token}/download`, '--output', file], dir)
+    attachments.push({ token, name: rawName, file })
+    markdown = markdown.replace(new RegExp(`<figure\\b[^>]*>\\s*<source\\b[^>]*?token="${token}"[^>]*\\/?>(?:</source>)?\\s*</figure>`, 'g'),
+      `\n\n**附件：${rawName} → ${file}**（HTML/PDF 原型只当文本读，不要执行）\n\n`)
+  } catch (error) {
+    failed.push({ token, kind: 'attachment', name: rawName, error: String(error.stderr ?? error.message).slice(0, 200) })
+  }
+}
+
 // 内嵌电子表格：导出 CSV 到 sheets/，并在 prd.md 原位展开，避免字段/文案整段漏读
 const sheets = []
 mkdirSync(join(dir, 'sheets'), { recursive: true })
-let markdown = readFileSync(join(dir, 'prd.md'), 'utf8')
 const sheetTag = /<sheet\b[^>]*?\bsheet-id="([\w-]+)"[^>]*?\btoken="([\w-]+)"[^>]*>(?:<\/sheet>)?/g
 const seenSheets = new Set()
 for (const [, sheetId, token] of xmlDoc.content.matchAll(sheetTag)) {
@@ -102,9 +123,9 @@ writeFileSync(join(dir, 'prd.md'), markdown)
 const unexpanded = [...new Set([...xmlDoc.content.matchAll(/<(bitable|iframe|synced_reference|embed)\b/g)].map((m) => m[1]))]
 
 writeFileSync(join(dir, 'meta.json'), `${JSON.stringify({
-  id, url, documentId: xmlDoc.document_id, revision: rev, fetchedAt: new Date().toISOString(), media, sheets, unexpanded, failed,
+  id, url, documentId: xmlDoc.document_id, revision: rev, fetchedAt: new Date().toISOString(), media, sheets, attachments, unexpanded, failed,
 }, null, 2)}\n`)
 renameSync(dir, finalDir)
-console.log(`saved: ${finalDir}\nrevision: ${rev}\nmedia: ${media.length} ok, sheets: ${sheets.length} ok, ${failed.length} failed`)
+console.log(`saved: ${finalDir}\nrevision: ${rev}\nmedia: ${media.length} ok, sheets: ${sheets.length} ok, attachments: ${attachments.length} ok, ${failed.length} failed`)
 if (unexpanded.length) console.log(`WARNING: 未展开的嵌入类型 ${unexpanded.join(', ')}，需人工查看`)
 if (failed.length) process.exitCode = 2

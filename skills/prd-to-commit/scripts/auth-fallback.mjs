@@ -85,3 +85,29 @@ export async function fakeLoginWithPublicCache(page, goto, warmPath, { mocks = [
   // 返回 unmatched：被兜底成 ok(null) 的接口，页面数据不对时看这里，再给它们写 mock
   return { cached: cache.size, unmatched }
 }
+
+// ---- 后台（Next admin / legacy-admin / futures-legacy-admin）免登录 ----
+// PR-02254（Next 后台）、PR-02012（legacy 后台）各自手写过同一套：后台 LoginRouter 不拦截，只看 token；
+// 侧栏、路由兜底、按钮级权限都由 /operate-api/menus 返回的 actionList / actionY 决定（Next 后台按 localStorage.ADMIN_ACTIONY 的 indexOf 判断）。
+// items 照兄弟页面登记的 menus 写：{ id, parentId, atName, atUrl, atDes, atType: 1, sortCode }，按钮级权限 atType -1、atName 为接口路径；
+// 必须含到达目标页的整条菜单链（父 → 子 → 页），只给 '*' 到不了页面。
+export const adminMenus = (items) => ({ actionList: items, actionY: items.map((item) => item.atName).join(',') })
+export const adminAuthMocks = (items) => [
+  { url: /\/operate-api\/menus/, json: ok(adminMenus(items)) },
+]
+/**
+ * 页面加载前注入后台假登录态。context/base 取 spec 的 helpers；
+ * token 同时写 localStorage（Next 后台）、cookie admin_token（legacy-admin，main.js 按 cookie 判断）与 admin-token（futures legacy，App.vue 从 window.name 落 cookie，未实测）。
+ */
+export async function fakeAdminLogin(page, context, base, items) {
+  await context.addCookies([
+    { name: 'admin_token', value: 'p2c-fake-token', url: base },
+    { name: 'admin-token', value: 'p2c-fake-token', url: base },
+  ])
+  await page.addInitScript(({ actionY }) => {
+    localStorage.setItem('admin_token', JSON.stringify('p2c-fake-token'))
+    localStorage.setItem('ADMIN_USERINFO', JSON.stringify({ user_id: '9001', nickname: 'p2c', user_name: 'p2c', username: 'p2c', name: 'p2c' }))
+    localStorage.setItem('ADMIN_ACTIONY', actionY)
+    localStorage.setItem('ADMIN_LANGUAGE', JSON.stringify({ zh_CN: '简体中文' }))
+  }, { actionY: adminMenus(items).actionY })
+}

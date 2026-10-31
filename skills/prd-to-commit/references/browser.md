@@ -9,13 +9,14 @@ node $S/dev.mjs start ~/github/<ID> --site web          # web 4710 | web-next 40
 # 需求带 MSW mock 时：先在 app 目录跑一次 `pnpm msw:init`，再以 NEXT_PUBLIC_ENABLE_MSW=true node $S/dev.mjs start ... 启动（进程环境变量优先于 .env 文件）
 node $S/dev.mjs status ~/github/<ID> --site web
 node $S/dev.mjs stop ~/github/<ID> --site web           # 交付后停掉
+node $S/dev.mjs prewarm ~/github/<ID> --site legacy-admin   # 只装 legacy 依赖、不启动；多站点需求建完 worktree 就对每个 legacy 站点跑一次（PR-02012 浏览器 R1 约 2h，首装占大头）
 ```
 
 - 端口固定，因为登录态按 origin 保存。同一站点同时只跑一个 dev server。端口被别的 worktree 占着时，只有对方 worktree 已不存在或启动超过 2 小时才自动接管；否则返回 4（`busy`），确认对方会话已结束再加 `--steal`。`stop` 只停本 worktree 起的服务。已在跑的服务 MSW 开关与本次不同时会自动重启。
 - **所有站点统一连 dev 环境（pfyys）**：开发期接口先发 dev，在 dev 联调完才上 test，dev 上的数据也更好操作。Next 站点用仓库的 `.env.dev`（等同 `pnpm dev`）；legacy 工程的仓库代理本来就指向 pfyys，以 `--mode dev` 启动。`scripts/legacy-vue.config.cjs` 只用来关掉自动打开浏览器；确需临时连别的环境时，在启动命令前加 `P2C_PROXY_FROM=pfyys.com P2C_PROXY_TO=<目标域名>`，不改仓库文件。legacy 第一次启动时会自动 `npm install`。
 - 多个站点可以同时运行（端口各不相同），按需启动即可。
 - **全机限流**：`dev.mjs start` 会检查整台机器上由它启动且仍在监听的 dev server，达到上限（环境变量 `P2C_MAX_DEV` > `~/.config/prd-to-commit/dev/max-dev` > 默认 4，排队中每次重试都重读）就每 30 秒重试、最多等 `P2C_DEV_WAIT_MIN`（默认 40）分钟，超时返回 5。16G 内存的机器上 3 个以上 Next dev 同时冷启动会卡死（2026-10-18 三次强制重启）；不要绕过它手动起 `next dev`。
-- 多个会话同时验证同一站点：各自在命令前加不同的 `P2C_PORT_OFFSET=<n>`（dev.mjs 与 browser.mjs 都认，端口 = 原端口 + n；偏移端口没有登录态，只适合 `auth = false` + mocks）。`--no-steal` 表示连遗留进程也不接管。等待期间先做冷读、写 spec。
+- 多个会话同时验证同一站点：各自在命令前加不同的 `P2C_PORT_OFFSET=<n>`（dev.mjs 与 browser.mjs 都认，端口 = 原端口 + n；偏移端口没有登录态，只适合 `auth = false` + mocks，§2 的 `check` 不用跑）。`--no-steal` 表示连遗留进程也不接管。等待期间先做冷读、写 spec。
 
 ## 2. 登录态
 
@@ -32,6 +33,7 @@ node $S/browser.mjs check --site web     # 无头检查，要求该站点 dev se
 - check 失效时，**告诉用户运行 `node $S/browser.mjs login --site <site>` 重新登录**（这一步需要人工过验证码或 GA）。这期间先做不依赖登录的验证。
 - 不要尝试自动登录或绕过验证码。
 - **用户不在场且登录态失效**（「直接做」、回放）：不停下等。能 mock 的页面照常验——spec 写 `export const auth = false`，把页面用到的接口（含用户信息、后台 menus/权限接口）全部写进 `mocks`；只有必须真实登录态才能出现的行为记 `not-covered: 登录态失效`。R11 回放 5 次遇到：用此法的 3 次（web 落地页、web 搜索、Next 后台 8 页）都验出了真问题，直接放弃的 2 次整段没覆盖。
+- **后台站点免登录**（admin / legacy-admin / futures-legacy-admin）：`auth-fallback.mjs` 的 `fakeAdminLogin(page, context, base, items)` + `adminAuthMocks(items)`，spec 写 `auth = false`；`items` 照兄弟页面在 menus 里的登记写，要含到达目标页的整条菜单链。后台 LoginRouter 不拦截，只看 token；侧栏/路由兜底/按钮权限都由 `/operate-api/menus` 的 actionList/actionY 决定（PR-02254 Next 后台、PR-02012 legacy 后台实测）。
 - **需要「已登录」页面但没有登录态**（失效或偏移端口）：用 `$S/auth-fallback.mjs`，不要自己从头写。`webAuthMocks` 给出满足 apps/web schema 的用户信息、合约用户配置等用户态接口；`fakeLoginWithPublicCache(page, goto, [预热页...], { mocks })` 先匿名访问预热页缓存 dev 公共接口的真实响应，再注入假 token，之后公共接口用缓存回放、spec 的 mocks 照常生效、其余请求回 `ok(null)`（防止带假 token 打到后端返回 10002 触发登出），返回的 `unmatched` 列出被兜底的接口，页面数据不对时给它们补 mock。同一 URL 后注册的 mock 优先，所以本需求的 mock 放在 `webAuthMocks` 后面。SSR 预取的数据 mocks 拦不到，只能用 dev 真实数据，构造不了的数据态记 not-covered。已在资产页验证可用（R14）。
 - 无头模式下 HeroUI Tooltip/Popover 类浮层对 `locator.hover()` 不一定响应、移出触发器又会立刻关闭（R11-01973、R13/R14-02006 各耗 10–20 分钟）。写法：取触发器 `boundingBox()`，`page.mouse.move(cx, cy, { steps: 5 })` 移到中心，等浮层出现后再 `mouse.move` 到浮层内的目标坐标（同样带 steps）再点击；只验证浮层内容时也可以 `locator.focus()` 或键盘触发。
 - 登录窗口是**普通 Chrome 进程**（不经 Playwright 启动），login 期间只在浏览器级别（`Storage.getCookies`、`Target.getTargets`）每 2 秒把 cookies 快照到 `<site>.state.json`（权限 600），不连接任何页面。实测：Playwright 启动的窗口，或经 Playwright 连进页面做快照，都会让 dev 登录页不停闪动、无法操作。页面全部关闭即视为登录结束。本站 localStorage（如后台 `admin_token`）由 `check` 在确认有效后从 profile 补进 state 文件，所以登录后要先对 `legacy-admin` 跑一次 `check`，Next 后台和合约后台才能复用。没有本机 Chrome 时，可加 `--automation` 回退到 Playwright 窗口。
@@ -79,6 +81,7 @@ node $S/browser.mjs run ~/.prd-cache/<ID>/browser-specs/<名字>.mjs --id <ID> [
 - 状态类需求用 mocks 构造各个数据态（如预热中/进行中/已结束、有数据/空/接口失败）分别截图。
 - **截图按需看**（Claude 用 Read 读 png）：每个页面/状态看 1 张对照 PRD 图片和 Figma 检查布局，失败步骤必看；文案、显隐、禁用态用 `expectText` / locator 断言判，不靠看图。每张截图约 1.5K token 且之后每轮都要背着（R13 浏览器子 agent 逐张看、3 轮重跑，上下文涨到 337K、28M）。看到问题算 MISMATCH；修完重跑只看 `report.md` 的通过/失败与 pageerror，修的是视觉问题才再看对应截图。
 - `report.md` 里的页面报错（pageerror）和本次改动相关的失败请求必须处理或说明原因。
+- **跨时间边界的断言**（倒计时归零、活动开始/结束切换、整点刷新）：mock 的时间点要给首屏留 ≥8 秒余量，不要卡着边界构造（PR-02634 一次误报）。
 
 ## 5. 交付说明里写
 

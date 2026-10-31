@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // 在 worktree 里按固定端口启动/停止/查看本地 dev server（站点配置见 browser-sites.json）。
-// usage: dev.mjs start|stop|status <worktree-path> --site web|admin|futures-admin|legacy-admin|futures-legacy-admin
+// usage: dev.mjs start|stop|status|prewarm <worktree-path> --site web|admin|futures-admin|legacy-admin|futures-legacy-admin
+// prewarm：只装 legacy 站点的依赖、不启动（多站点需求在编码期预装，免得浏览器验证时等首装）
 import { execSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
@@ -10,8 +11,8 @@ import { fileURLToPath } from 'node:url'
 
 const [cmd, worktreeArg, ...rest] = process.argv.slice(2)
 const site = rest.includes('--site') ? rest[rest.indexOf('--site') + 1] : 'web'
-if (!['start', 'stop', 'status'].includes(cmd) || !worktreeArg) {
-  console.error('usage: dev.mjs start|stop|status <worktree-path> --site <site>')
+if (!['start', 'stop', 'status', 'prewarm'].includes(cmd) || !worktreeArg) {
+  console.error('usage: dev.mjs start|stop|status|prewarm <worktree-path> --site <site>')
   process.exit(1)
 }
 const sites = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'browser-sites.json'), 'utf8'))
@@ -43,6 +44,30 @@ async function waitReady(timeoutMs) {
     await new Promise((r) => setTimeout(r, 2000))
   }
   return false
+}
+
+// legacy 站点（有 install 命令的）首次启动前装依赖；Next 站点由 worktree.mjs 的 pnpm install 覆盖
+function installDeps(appDir) {
+  if (!conf.install) return 'not-needed'
+  if (existsSync(join(appDir, 'node_modules'))) return 'already'
+  console.log(`installing deps for ${site} (${conf.install}) ...`)
+  execSync(conf.install, { cwd: appDir, stdio: 'inherit' })
+  // npm install 可能改写受跟踪的 package-lock.json，留着会混进 diff、冷读和提交；不用 npm ci（旧锁文件不同步时直接失败）
+  try {
+    if (execSync('git diff --name-only -- package-lock.json', { cwd: appDir, encoding: 'utf8' }).trim()) {
+      execSync('git checkout -- package-lock.json', { cwd: appDir })
+      console.log(`restored ${conf.app}/package-lock.json（npm install 改写了它）`)
+    }
+  } catch {}
+  return 'installed'
+}
+
+if (cmd === 'prewarm') {
+  const appDir = join(worktree, conf.app)
+  if (!existsSync(appDir)) throw new Error(`${appDir} 不存在`)
+  const result = installDeps(appDir)
+  console.log({ 'not-needed': `prewarm ${site}: 该站点不需要单独装依赖`, already: `prewarm ${site}: 依赖已存在，跳过`, installed: `prewarm ${site}: 依赖已装好（未启动）` }[result])
+  process.exit(0)
 }
 
 if (cmd === 'status') {
@@ -166,17 +191,7 @@ if (pidOnPort().length) {
   if (state && !ours) restoreHoist(state.worktree)
   await new Promise((r) => setTimeout(r, 2000))
 }
-if (conf.install && !existsSync(join(appDir, 'node_modules'))) {
-  console.log(`installing deps for ${site} (${conf.install}) ...`)
-  execSync(conf.install, { cwd: appDir, stdio: 'inherit' })
-  // npm install 可能改写受跟踪的 package-lock.json，留着会混进 diff、冷读和提交；不用 npm ci（旧锁文件不同步时直接失败）
-  try {
-    if (execSync('git diff --name-only -- package-lock.json', { cwd: appDir, encoding: 'utf8' }).trim()) {
-      execSync('git checkout -- package-lock.json', { cwd: appDir })
-      console.log(`restored ${conf.app}/package-lock.json（npm install 改写了它）`)
-    }
-  } catch {}
-}
+installDeps(appDir)
 fixHoist()
 const log = join(stateDir, portOffset ? `${site}-${conf.port}.log` : `${site}.log`)
 const child = spawn('sh', ['-c', conf.start.replaceAll('{port}', String(conf.port))], {

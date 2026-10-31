@@ -2,6 +2,7 @@
 
 参数：
 - 项目号：{{RUN}}
+- 回放模式跳过 §0 预检（不要运行 preflight.mjs：它会 fetch 远端分支、读 base 之后的历史）。
 - PRD 已落盘（跳过 §1 的 fetch 脚本）：{{PRD}}/prd.md（可能是 Markdown 与 Lark XML 混排；`<del>` 是删除线；`src="media/..."` 指向同目录 media/ 下的本地图片，必须逐张看；标注「图片未落盘，仅有描述」的只有文字描述可用；如有 sheets/ 也要读）
 - 清单、plan、run-log 写到 /Users/aven/.prd-cache/{{RUN}}/
 - Worktree 已建好（跳过 §4 脚本）：/Users/aven/github/{{RUN}}，分支 replay/{{RUN}}，base commit {{BASE}}。所有代码改动只在这个目录。check.mjs 用 `--base {{BASE}}`，冷读的 <BASE> 用 {{BASE}}。
