@@ -4,7 +4,9 @@
 // 取调用最多的一段（首尾各留 10 分钟）；聊天文本里的提及不算（总结、候选清单会反复点名所有需求）。
 // 子 agent 文件按「首条任务提示或工具调用输入」提及该需求并入（注入的 git 状态等系统上下文会点名无关需求，不能用全文匹配）；
 // 其首尾时间并入工作区间。这样同一会话连跑多个需求、agent 模式 cwd 不在 worktree 都能拆开。
-// usage: stats.mjs <PROJECT-ID> [--days 3] [--no-append]
+// 阶段拆分：子 agent 按首条任务提示归类（读图/落点/编码/冷读/浏览器/修复/对照评分/执行主体/其他），输出阶段 × token × 次数 × 时长。
+// usage: stats.mjs <PROJECT-ID> [--days 3] [--no-append] [--until <ISO 时间>] [--detail]
+//   --until  只统计该时刻之前的事件（排除跑完后的人工对照/评分 agent）；--detail 逐个子 agent 列出
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -12,11 +14,33 @@ import { join } from 'node:path'
 const args = process.argv.slice(2)
 const id = args[0]
 if (!id || id.startsWith('--')) {
-  console.error('usage: stats.mjs <PROJECT-ID> [--days 3] [--no-append]')
+  console.error('usage: stats.mjs <PROJECT-ID> [--days 3] [--no-append] [--until <ISO>] [--detail]')
   process.exit(1)
 }
 const days = Number(args.includes('--days') ? args[args.indexOf('--days') + 1] : 3)
 const since = Date.now() - days * 86400000
+const until = args.includes('--until') ? new Date(args[args.indexOf('--until') + 1]).toISOString() : undefined
+if (args.includes('--until') && until === 'Invalid Date') throw new Error('--until 要 ISO 时间，如 2026-10-30T14:10:00+04:00')
+const detail = args.includes('--detail')
+
+// 子 agent 阶段：按首条任务提示的措辞归类（提示由 SKILL/delegation.md 规定，措辞稳定）；顺序即优先级
+const PHASE_RULES = [
+  // 执行主体 = 整个需求交给它跑的 agent：提示以「你在做一次…」开头，或让它读 _runs/_bench 下的 .prompt（compare.prompt 是对照）
+  ['执行主体', /^你在做一次|_runs\/(?![^\s`]*compare)[^\s`]+\.prompt|_bench\/[^\s`]+\.prompt/],
+  ['冷读', /需求验收员/],
+  ['修复', /负责修复|修复批|修复.{0,40}发现的问题/],
+  ['浏览器', /浏览器验证子 agent|浏览器子 agent|浏览器验证/],
+  ['对照评分', /评分员|人工对照|对照同事|同事分支|compare\.prompt/],
+  ['读图', /逐张转写|转写成文字|转写到/],
+  ['落点', /落点地图|Explore|找落点|落点/],
+  ['编码', /编码子 agent|你负责|批次|清单行|可写文件|实现/],
+]
+const phaseOf = (events) => {
+  const prompt = events.find((event) => event.type === 'user' && !event.isMeta)
+  // 只看开头：意图在第一句，后面的提示正文会提到冷读/浏览器/修复等词
+  const text = prompt ? textOf(prompt.message?.content).slice(0, 300) : ''
+  return PHASE_RULES.find(([, re]) => re.test(text))?.[0] ?? '其他'
+}
 
 function walk(dir, pick) {
   if (!existsSync(dir)) return []
@@ -103,10 +127,18 @@ for (const file of walk(join(homedir(), '.claude', 'projects'), (path) => path.e
   const mainWindow = workWindow(touches)
   const starts = [...subSpans.map(([start]) => start), ...(mainWindow ? [mainWindow[0]] : [])].sort()
   const ends = [...subSpans.map(([, end]) => end), ...(mainWindow ? [mainWindow[1]] : [])].sort()
-  const window = starts.length ? [starts[0], ends.at(-1)] : undefined
+  let window = starts.length ? [starts[0], ends.at(-1)] : undefined
+  if (window && until) window = [window[0], until < window[1] ? until : window[1]]
   const main = claudeUsage([file], window)
   const all = claudeUsage([file, ...subFiles], window)
-  rows.push({ tool: 'claude', session: file.split('/').pop().slice(0, 8), subagents: subFiles.length, mainTokens: main.tokens, ...all })
+  // 阶段明细：每个子 agent 一条，主会话单列
+  const parts = subFiles.map((sub) => {
+    const subEvents = lines(sub)
+    const usage = claudeUsage([sub], window)
+    return { phase: phaseOf(subEvents), name: sub.split('/').pop().replace('.jsonl', ''), ...usage }
+  }).filter((part) => part.calls > 0)
+  parts.unshift({ phase: '主会话', name: 'main', ...main })
+  rows.push({ tool: 'claude', session: file.split('/').pop().slice(0, 8), subagents: subFiles.length, mainTokens: main.tokens, ...all, parts })
 }
 
 // Codex：取每个会话最后一次 token_count 的累计值；子代理会话（session_meta.source.subagent）并入父会话
@@ -164,7 +196,30 @@ const table = [
   ...rows.map((row) => `| ${row.tool} | ${row.session} | ${row.subagents} | ${row.calls} | ${m(row.tokens)} | ${m(row.mainTokens)} | ${activeMinutes(row)} 分钟 | ${minutes(row)} 分钟 | ${row.start?.slice(5, 16)} → ${row.end?.slice(5, 16)} |`),
 ]
 const total = rows.reduce((sum, row) => sum + row.tokens, 0)
-const report = `\n## stats（${new Date().toISOString().slice(0, 16)}，最近 ${days} 天）\n\n${table.join('\n')}\n\n合计：${rows.length} 个会话，${m(total)} token，活跃 ${rows.reduce((sum, row) => sum + activeMinutes(row), 0)} 分钟（相邻事件间隔 >10 分钟的部分不计）\n`
+// 阶段汇总：所有会话的 parts 按阶段累加（token 之和 = 含子 agent 总量）
+const phaseOrder = ['主会话', '执行主体', '读图', '落点', '编码', '冷读', '浏览器', '修复', '对照评分', '其他']
+const byPhase = new Map()
+for (const part of rows.flatMap((row) => row.parts ?? [])) {
+  const agg = byPhase.get(part.phase) ?? { count: 0, tokens: 0, calls: 0, minutes: 0 }
+  agg.count += 1
+  agg.tokens += part.tokens
+  agg.calls += part.calls
+  agg.minutes += minutes(part)
+  byPhase.set(part.phase, agg)
+}
+const phaseTable = byPhase.size ? [
+  '',
+  '| 阶段 | 个数 | token | 占比 | 模型调用 | 累计时长 |',
+  '|-|-|-|-|-|-|',
+  ...phaseOrder.filter((phase) => byPhase.has(phase)).map((phase) => {
+    const agg = byPhase.get(phase)
+    return `| ${phase} | ${agg.count} | ${m(agg.tokens)} | ${total ? Math.round((agg.tokens / total) * 100) : 0}% | ${agg.calls} | ${agg.minutes} 分钟 |`
+  }),
+  ...(detail ? ['', '| 阶段 | 子 agent | token | 调用 | 时长 | 起止 |', '|-|-|-|-|-|-|',
+    ...rows.flatMap((row) => (row.parts ?? []).filter((part) => part.phase !== '主会话').sort((a, b) => (a.start ?? '').localeCompare(b.start ?? ''))
+      .map((part) => `| ${part.phase} | ${part.name.slice(0, 14)} | ${m(part.tokens)} | ${part.calls} | ${minutes(part)} 分钟 | ${part.start?.slice(5, 16)} → ${part.end?.slice(11, 16)} |`))] : []),
+].join('\n') : ''
+const report = `\n## stats（${new Date().toISOString().slice(0, 16)}，最近 ${days} 天）\n\n${table.join('\n')}\n\n合计：${rows.length} 个会话，${m(total)} token，活跃 ${rows.reduce((sum, row) => sum + activeMinutes(row), 0)} 分钟（相邻事件间隔 >10 分钟的部分不计）${until ? `，截至 ${until.slice(0, 16)}` : ''}\n${phaseTable}\n`
 console.log(report)
 if (!args.includes('--no-append')) {
   mkdirSync(join(homedir(), '.prd-cache', id), { recursive: true })

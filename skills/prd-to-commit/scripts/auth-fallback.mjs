@@ -111,3 +111,16 @@ export async function fakeAdminLogin(page, context, base, items) {
     localStorage.setItem('ADMIN_LANGUAGE', JSON.stringify({ zh_CN: '简体中文' }))
   }, { actionY: adminMenus(items).actionY })
 }
+
+// ---- web-next（Vite + TanStack Start）免登录 ----
+// R20/R21-01507 两次回放各自摸索过同一套：dev server 下 localStorage key 带环境前缀（`makeStorageKey`：`dev__accessToken`、`dev__uid`），
+// 值是 JSON 字符串；登录态判定靠首页请求 `/fe-ex-api/common/user_info_v1`（POST），用 webAuthMocks 兜底即可（同一后端，字段同 apps/web）。
+// 假 token 打到 dev 后端同样会 10002 登出，所以复用 fakeLoginWithPublicCache 的「先匿名预热缓存公共接口」。
+export const WEB_NEXT_TOKEN_KEY = 'dev__accessToken'
+export const WEB_NEXT_UID_KEY = 'dev__uid'
+export const webNextAuthMocks = webAuthMocks
+// 用法同 apps/web：spec 里 `export const mocks = [...webNextAuthMocks, /* 本需求接口 */]`，再把同一个 mocks 传进来（这里只用它判断放行，不注册路由）。
+export async function fakeWebNextLogin(page, goto, warmPath, { mocks = [], uid = '10001', ...rest } = {}) {
+  await page.addInitScript(([k, v]) => window.localStorage.setItem(k, v), [WEB_NEXT_UID_KEY, JSON.stringify(uid)])
+  return fakeLoginWithPublicCache(page, goto, warmPath, { mocks, tokenKey: WEB_NEXT_TOKEN_KEY, ...rest })
+}

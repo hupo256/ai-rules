@@ -58,5 +58,15 @@
     "base": "3c50f7f2c2",
     "prd": "~/.prd-cache/REPLAY-01988/r1838",
     "scope": "本仓前端：apps/admin（Next 后台，新增预测市场 8 个页面）+ apps/web（仅预测市场前端埋点）。legacy-admin 菜单搬迁、App、服务端埋点和后端不做；不为本地跑通去改全局菜单/登录/next.config 等共享配置；i18n 只写 zh-CN。接口按 PRD 和 inputs/ 的 YApi 契约（2026-06-25，32 个接口）写，契约里没有的按 skill 规则处理（待确认/blocker）。无 Figma；截图在 media/，原型 html 和说明在 figma/（先读 figma/README.md），截图/原型与正文删除线冲突时以正文为准。"
+  },
+  "PR-02634": {
+    "base": "f9309e9fe0",
+    "prd": "~/.prd-cache/REPLAY-02634/r404",
+    "scope": "只做 C 端前端（PC + H5）：目标工程在 apps/web 与 apps/web-next 之间由你按 skill 规则判定并写明依据；App 原生、后台、后端不做；i18n 只写 zh-CN。接口契约 PRD 未给，按 skill 规则处理（仓内有同类活动/榜单接口可作候选契约）。"
+  },
+  "PR-01549": {
+    "base": "f9309e9fe0",
+    "prd": "~/.prd-cache/REPLAY-01549/r327",
+    "scope": "只做 C 端前端：目标工程在 apps/web 与 apps/web-next 之间由你按 skill 规则判定并写明依据；App 原生、后台、后端不做；i18n 只写 zh-CN。接口契约 PRD 未给，按 skill 规则处理（仓内已有下单/条件单接口可作候选契约；镜像时整份照搬字段）。"
   }
 }

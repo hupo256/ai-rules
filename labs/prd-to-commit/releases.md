@@ -13,6 +13,17 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 
 （无）
 
+## v1.8 — 2026-10-31
+
+依据 v1.7 发版后的全面复盘（[plans/2026-10-31-v1.8-plan.md](./plans/2026-10-31-v1.8-plan.md)）。工具/文档版：SKILL.md 只改了 §8 一句（浏览器复跑返回才进 §9）与 §10 一句（联调前不可用首行写明），其余为工具与参考文档。
+
+- **工具**：`stats.mjs` 按阶段拆分（读图/落点/编码/冷读/浏览器/修复/执行主体/对照评分）+ `--until`/`--detail`；`bugs.mjs`（新）拉 QA bug 表与截图；`launch.mjs`（新）一条命令预检→拉 PRD→worktree→生成 agent 提示（`run-prompt.tpl`）；`auth-fallback.mjs` 加 web-next 免登录 `fakeWebNextLogin`；人工对照模板进 `replay/tools/compare-prompt.sh`。
+- **参考文档**：fameex.md 加「活动页」节（未开始/已结束置灰、配置以接口为准、倒计时就地切换）、i18n 两套机制分开；delegation.md 批次 0 点明 web-next 路由树生成。
+- **基准**：新增 PR-02634、PR-01549（陷阱 T1 = 目标工程），回放 R22：02634 18/18、01549 15/18（T4），T1 均未违反——v1.7 的目标工程规则首次得到回放验证（注意基准与 fameex.md 同源，见基准头部）。
+- **成本分析**：[reports/2026-10-31-cost-breakdown.md](./reports/2026-10-31-cost-breakdown.md)——浏览器 13–52% token、65–152 分钟是最大单项。
+- **观察清单新增（各 1 次）**：止盈止损生效范围用旁证推断（R22-01549 T4，规则已有、执行漏）；PRD 要求的接口仓内不存在时无处理口径（R22-01549 最新价 REST）；单工程强耦合需求派不派的判据（R22-01549）；冷读第 2 轮提示没有模板（R22-01549）；fameex.md 条目点名需求会影响同源基准的公平性。
+
+
 ## v1.7 — 2026-10-31
 
 依据观察期 8 个真实需求（[real-runs/](./real-runs/)，3 个有人工对照）；计划与逐步结果见 [plans/2026-10-30-v1.7-plan.md](./plans/2026-10-30-v1.7-plan.md)。

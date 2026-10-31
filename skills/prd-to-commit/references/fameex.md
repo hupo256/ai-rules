@@ -21,6 +21,12 @@
 - 资产页、现货/资金账户流水、帮助中心都还在 apps/web（legacy）：需求涉及这些宿主页而用户限定 web-next 时，标「不做（宿主在 apps/web）」并列待确认。
 - 已对接同一后端的接口，apps/web 的 `src/services/api/*`、`src/types/*` 可作为契约输入存 `inputs/`（只取契约，不看旧 UI，PR-01507）。
 
+## 活动页（交易赛、嘉年华类落地页；PRD 常只写一半）
+- 行动按钮（报名/去交易）**未开始与已结束都置灰**：PRD 状态表通常只写「已结束置灰」，QA 会按「未开始不能报名」报 bug（PR-02634 QA 7986；人工对照同样指出）。
+- **奖池档位、分配比例等配置：接口返回同类字段（`milestones`、`nextMilestoneGap` 之类）时以接口为准**，PRD 的表只作缺省与校验；写死 PRD 表在测试环境（档位不同）就错（PR-02634 QA 7994）。
+- 倒计时跨过开始/结束时间要就地切换阶段，不等后端状态（后端 `activityStatus` 会滞后，PR-02634 QA 7987）；结束弹窗按钮、名次文字要有对比度（QA 8017）。
+- App 内打开的能力见下一节。
+
 ## App WebView（PRD 写「App 端」「Web/App 两端验收」「App 内打开」时，清单展开这些行）
 - 原生导航栏右上角分享：`apps/web/src/utils/bridge.ts` 的 `sendShareContentMessage`（进页即发，让 App 出现分享按钮），`hasAppBridge()` 判 App 内；web-next 同事版在 `utils/appBridge.ts`（showShare / shareContent）。
 - 跳出交易/登录再返回要看到最新数据：监听 `focus`、`pageshow`、`visibilitychange` 刷新概览与进度（PR-02634 同事「修复 app 数据不更新」）；只做轮询不够。
@@ -36,7 +42,7 @@
 ## i18n
 - Web 只改 zh-CN（`AGENTS.md:31`）。
 - legacy 后台只有 zh_CN 时缺 key 显示空白（不是 key 名），只改 zh_CN 要确认 fallback（PR-02012）。
-- 新增只有 zh-CN 的命名空间时，要登记到 `ZH_CN_SOURCE_ONLY_NAMESPACES`，否则其他语种加载会报错（PR-02463）。先 grep 确认这个机制存在；不存在（较旧的代码）就把 key 放进已有命名空间，不新建（R11-01973）。
+- **apps/web** 新增只有 zh-CN 的命名空间时，要登记到 `ZH_CN_SOURCE_ONLY_NAMESPACES`，否则其他语种加载会报错（PR-02463）。先 grep 确认这个机制存在；不存在（较旧的代码）就把 key 放进已有命名空间，不新建（R11-01973）。**apps/web-next** 可以新建命名空间（登记 `namespaces.ts` + `i18next.d.ts`，见 web-next 节），两套机制不要互套（R21-01507 曾被这两条绊住）。
 - 文案带 `& / <` 等符号又走插值时，会被 i18next 转义；能写死就写死，否则传 `interpolation: { escapeValue: false }`（PR-02306）。
 
 ## MSW（接口未就绪时写全 UI/UX）
