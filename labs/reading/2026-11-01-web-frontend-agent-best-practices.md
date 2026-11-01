@@ -15,7 +15,7 @@
 | 任务流程（Skill） | 遇到某类任务按什么顺序做 | prd-to-commit（需求→提交）、coding-quality（数据 UI/表单/状态）、change-scoping（集合操作）、figma-read（Figma 取值） | 项目事实（已通过 `references/fameex.md` 隔离，正确做法）、每次都要的硬规则 | ✅ 4 个 Skill 都有「什么时候读」的 description；prd-to-commit v1.7 起 SKILL.md 只留骨架、细则按阶段 references 按需加载，正是文章说的「偶尔用的流程不要常驻」 |
 | 本轮边界（当前对话 / `--append-system-prompt`） | 这一轮只许做什么 | 「只改 apps/web」「直接做、绕开登录」「不 push」「并发端口偏移」 | 项目知识、流程 | ✅ 实跑模板 `run-prompt.tpl` / 回放 `prompt.tpl` 就是这一层；没用 `--append-system-prompt`，不需要（settings.json 无 systemPrompt 覆盖，`--system-prompt` 替换式的坑我们没踩） |
 
-**要改（1）**：把 `references/fameex.md` 里标了「长期应沉淀进 fameex-web」的条目真正搬进仓库的 AGENTS.md / `.cursor/rules`（工程归属判据、React 19 运行时坑、legacy i18n 空白、后台菜单登记）。理由：它们是**项目事实**，别的 Agent（Codex、Cursor）和同事也该看到，不该只住在一个 Skill 的 references 里。搬完 fameex.md 只留「skill 流程特有」的坑（MSW 回放公平性、浏览器 spec 技巧）。
+**要改（1）（已执行，见 §8：按用户要求放个人本地而非团队仓库）**：把 `references/fameex.md` 里的项目事实独立成文（工程归属判据、React 19 运行时坑、legacy i18n 空白、后台菜单登记）。理由：它们是**项目事实**，别的 Agent（Codex、Cursor）和同事也该看到，不该只住在一个 Skill 的 references 里。搬完 fameex.md 只留「skill 流程特有」的坑（MSW 回放公平性、浏览器 spec 技巧）。
 
 ## 2. Skill：发现 → 路由 → 执行，每层可检查
 
@@ -78,11 +78,11 @@
 
 | # | 动作 | 理由（文章条目） | 结果 |
 |---|---|---|---|
-| 1 | fameex.md 中的项目事实搬进 fameex-web | §3 四层分工 | ✅ fameex-web 分支 `docs/agent-rules-2026-11`（worktree `~/github/agent-rules`，本地提交，未 push）：AGENTS.md 新增「Where New Work Goes」（web / web-next / 独立应用判据、后台两套与菜单登记、web-next 规范要点、契约输入）+ pnpm 12 / git stash / lint-staged / vitest 说明；新增 4 条按 globs 命中的 mdc：`react19-runtime-pitfalls`、`legacy-admin-vue2`、`i18n-locale-rules`、`activity-landing-and-app-webview`。fameex.md 13.9K → 7.3K，只留流程特有项（复核补缺、MSW 与回放公平性、契约输入、测试、口径与错误码）并指向仓库文件 |
+| 1 | fameex.md 中的项目事实独立成文 | §3 四层分工 | ✅（调整）用户要求**不改团队仓库**：先在 fameex-web 分支做了一版后撤回（分支与 worktree 已删，从未 push），改放个人本地 `~/.ai-rules/rules/fameex/`——`where-new-work-goes.md`（web / web-next / 独立应用判据、后台两套与菜单登记、web-next 规范要点、契约输入、pnpm 12 / Biome / git stash / vitest 等环境事实）+ 4 个主题文件（`react19-runtime-pitfalls`、`legacy-admin-vue2`、`i18n-locale-rules`、`activity-landing-and-app-webview`），由 `rules/fameex-local.md` 按改动区域路由，Claude 与 Codex 都生效。fameex.md 13.9K → 7.3K，只留流程特有项 |
 | 2 | 清理裸文件 / 统一 lark-read | §2 唯一真源、§1 执行层 | ✅ `tailwind-cleanup.md` 做成 `~/.ai-rules/skills/tailwind-cleanup/SKILL.md`（description 补了触发与不适用场景），软链进 `~/.claude/skills` 与 `~/.codex/skills`；`~/.codex/skills/lark-read` 是空 TODO 模板，已删 |
 | 3 | `scripts/agent-doctor.sh` 只读体检 | 附录脚本 | ✅ 四层各一段，输出 ok/warn/missing。首跑即筛出真问题：`.cursor/rules/async-api-routes.mdc` 既无 globs 也不常驻（永远不会命中）→ 已补 globs |
 | 4 | prd-to-commit `references/hosts.md` | §6 核心层/适配层 | ✅ Claude / Codex / Cursor 的派发、冷读、端口、提交、权限、规则加载、stats、回放各一行；SKILL 表加指针 |
-| 5 | 审 CLAUDE.md vs AGENTS.md | §3 职责清楚 | ✅ 发现并修：CLAUDE.md 写「tests 在 `__tests__/`」vs AGENTS「co-locate `*.test.ts`」（以 AGENTS 为准）；CLAUDE.md 仍写 ESLint/Prettier 而仓库用 Biome；CLAUDE.md 末尾「Always use Context7 MCP」是对未安装工具的硬性要求（文章 §5 的典型反例）→ 删，改为「AGENTS.md 为准、mdc 按 globs 命中」；apps 列表缺 web-next / business-system → 补。`.cursor/rules` 83 条，常驻仅 2（auth-entry、prediction-web-next），其余按 globs，合理 |
+| 5 | 审 CLAUDE.md vs AGENTS.md | §3 职责清楚 | ✅ 发现：CLAUDE.md 写「tests 在 `__tests__/`」vs AGENTS「co-locate」；CLAUDE.md 写 ESLint/Prettier 而实际是 Biome；末尾「Always use Context7 MCP」是对未安装工具的硬性要求（文章 §5 反例）；apps 列表缺 web-next / business-system；`.cursor/rules/async-api-routes.mdc` 无 globs 永不命中。**团队文件不改**，这些写进个人 `where-new-work-goes.md`「环境与工具事实」作为纠偏说明。`.cursor/rules` 83 条，常驻仅 2，合理 |
 | 6 | 不接代码图谱 MCP | §7 | 不动 |
 | 7 | 不用 `--append-system-prompt` 替代 Skill | §4 | 不动 |
 
