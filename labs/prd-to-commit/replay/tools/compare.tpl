@@ -1,7 +1,7 @@
 你是 prd-to-commit 实跑数据的对照分析员。只读分析，不改任何代码、不跑 git 写操作。全程中文。
 
 对象：需求 {{ID}}。
-- 我们（AI 按 prd-to-commit 实现）：worktree /Users/aven/github/{{ID}}，提交 {{OURS}}（base {{BASE}}）。看改动：`git -C /Users/aven/github/{{ID}} show --stat {{OURS}}`、`git -C /Users/aven/github/{{ID}} diff {{BASE}} {{OURS}}`。
+- 我们（AI 按 prd-to-commit 实现）：提交 {{OURS}}（本地分支，worktree 可能已删：用主仓 /Users/aven/github/fameex-web 看，或 `git worktree add` 重建）（base {{BASE}}）。看改动：`git -C /Users/aven/github/{{ID}} show --stat {{OURS}}`、`git -C /Users/aven/github/{{ID}} diff {{BASE}} {{OURS}}`。
 - 同事（人工实现，可能仍在进行中）：主仓 /Users/aven/github/fameex-web 的远端分支 origin/{{BRANCH}}（已 fetch，tip {{TIP}}）。只看与本需求有关的改动：先 `git -C /Users/aven/github/fameex-web log --first-parent --no-merges --format='%h %cs %an %s' $(git -C /Users/aven/github/fameex-web merge-base origin/{{BRANCH}} {{BASE}})..origin/{{BRANCH}}` 列出同事自己的提交，再对这些提交看 diff（注意分支里可能混有合并进来的 online/其他需求改动，按提交作者与提交信息过滤，不要把别人的改动算进来）。
 - 依据：PRD /Users/aven/.prd-cache/{{ID}}/{{REV}}/prd.md（含 media/）；我们的清单 /Users/aven/.prd-cache/{{ID}}/checklist.md、交付说明 /Users/aven/.prd-cache/_runs/{{ID}}.out。
 

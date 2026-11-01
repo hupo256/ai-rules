@@ -7,7 +7,8 @@ ID=$1; OURS=$2; BRANCH=$3; T=$(dirname $0); REPO=$HOME/github/fameex-web
 REV=${4:-$(ls -d $HOME/.prd-cache/$ID/r[0-9]* | sort -t r -k2 -n | tail -1 | xargs basename)}
 git -C $REPO fetch -q origin $BRANCH
 TIP=$(git -C $REPO rev-parse --short origin/$BRANCH)
-BASE=$(git -C $HOME/github/$ID merge-base HEAD origin/online | cut -c1-10)
+# worktree 可能已删（只留分支）：用主仓按提交算 base
+BASE=$(git -C $REPO merge-base $OURS origin/online | cut -c1-10)
 mkdir -p $HOME/.prd-cache/_runs
 sed -e "s#{{ID}}#$ID#g" -e "s#{{OURS}}#$OURS#g" -e "s#{{BRANCH}}#$BRANCH#g" -e "s#{{TIP}}#$TIP#g" -e "s#{{REV}}#$REV#g" -e "s#{{BASE}}#$BASE#g" $T/compare.tpl > $HOME/.prd-cache/_runs/$ID.compare.prompt
 echo $HOME/.prd-cache/_runs/$ID.compare.prompt
