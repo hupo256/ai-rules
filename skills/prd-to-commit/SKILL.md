@@ -15,7 +15,8 @@ description: 只给 PRD（Lark 链接或正文）+ 项目号时，从拉 PRD 到
 | §3.5 写 plan 前（§1 转写、§2 Explore 子 agent 不用等它） | `references/delegation.md`（分批、编码/浏览器子 agent 的提示内容、run-log） |
 | §4 起 dev server / 浏览器验证 | `references/browser.md` |
 | §7 冷读 | `references/coldread-prompt.md`（提示词全文） |
-| 碰到 FameEX 具体坑 | `references/fameex.md`（工程归属、App WebView、口径与错误码、i18n、MSW、运行时坑） |
+| 碰到 FameEX 具体坑 | `references/fameex.md`（流程特有的判断：复核补缺、MSW、契约输入、测试）；项目事实在仓库 `AGENTS.md` 与按 globs 命中的 `.cursor/rules/*.mdc` |
+| 换宿主（Codex / Cursor）或沙箱限制 | `references/hosts.md`（派发、端口、提交、权限的宿主差异） |
 
 ## 0. 预检（拉 PRD 前）
 
