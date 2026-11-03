@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // 一条命令把一个真实需求准备到「可以派 agent」：preflight → fetch-prd → worktree → 生成 agent 提示（run-prompt.tpl）。
-// usage: launch.mjs <PROJECT-ID> <lark-url> [--offset 100] [--mode direct|confirm] [--branch <name>] [--max-dev 1] [--force] [--refetch]
+// usage: launch.mjs <PROJECT-ID> [<lark-url>] [--offset 100] [--mode direct|confirm] [--branch <name>] [--max-dev 1] [--force] [--refetch]
 //   --mode direct：用户已说「直接做、绕开登录」（跳过 §3，浏览器 auth=false + mocks，strictWrites）；confirm：按 SKILL §3 停下等用户
 //   --force：preflight 返回 10/20 也继续（10 需要同时给 --branch）
+//   不给 <lark-url> 时用 find-prd.mjs 从需求池查 PRD 链接（并打印 BRD 链接、上线时间、是否免测）
 // 输出：提示文件 ~/.prd-cache/_runs/<ID>.prompt；之后由编排方用 Agent（Opus）执行该提示，或自己在主会话按提示跑。
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -11,9 +12,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const args = process.argv.slice(2)
-const [id, url] = args
-if (!id || !url || id.startsWith('--')) {
-  console.error('usage: launch.mjs <PROJECT-ID> <lark-url> [--offset 100] [--mode direct|confirm] [--branch <name>] [--max-dev 1] [--force] [--refetch]')
+const id = args[0]
+let url = args[1] && !args[1].startsWith('--') ? args[1] : undefined
+if (!id || id.startsWith('--')) {
+  console.error('usage: launch.mjs <PROJECT-ID> [<lark-url>] [--offset 100] [--mode direct|confirm] [--branch <name>] [--max-dev 1] [--force] [--refetch]')
   process.exit(1)
 }
 const option = (name, fallback) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback)
@@ -25,6 +27,22 @@ const scripts = dirname(fileURLToPath(import.meta.url))
 const runsDir = join(homedir(), '.prd-cache', '_runs')
 mkdirSync(runsDir, { recursive: true })
 const node = (script, scriptArgs) => spawnSync(process.execPath, [join(scripts, script), ...scriptArgs], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] })
+
+// 0. 没给 PRD 链接：从需求池查（看板 → 项目管理表都没有链接，需求池「需求描述/文档」才有）
+let brdUrl
+if (!url) {
+  const found = node('find-prd.mjs', [id, '--json'])
+  if (found.status !== 0) {
+    console.error(`需求池里查不到 ${id} 的 PRD 链接：请直接给 <lark-url>`)
+    process.exit(found.status || 2)
+  }
+  const info = JSON.parse(found.stdout)
+  url = info.prd
+  brdUrl = info.brd
+  console.log(`PRD（需求池）: ${url}  ${info.prdTitle ?? ''}`)
+  if (brdUrl) console.log(`BRD（需求池反馈描述）: ${brdUrl}  ${info.brdTitle ?? ''}`)
+  console.log(`状态: ${info.status}；上线 ${info.launch ?? '-'}${info.note ? `；备注: ${info.note}` : ''}\n`)
+}
 
 // 1. 预检：10（远端在途分支）要用户裁定分支/契约；20（已合入 base）进复核补缺模式——两种都先停，--force 才继续
 const preflight = node('preflight.mjs', [id])
@@ -48,7 +66,10 @@ const revDirs = readdirSync(cacheDir).filter((name) => /^r\d+$/.test(name)).sort
 if (!revDirs.length) throw new Error(`${cacheDir} 下没有 r<rev> 目录`)
 const prdDir = join(cacheDir, revDirs[0])
 const inputsDir = join(cacheDir, 'inputs')
-const inputs = existsSync(inputsDir) && readdirSync(inputsDir).length ? `额外输入在 ${inputsDir}/（清单、编码、冷读都要引用）。` : ''
+const inputs = [
+  existsSync(inputsDir) && readdirSync(inputsDir).length ? `额外输入在 ${inputsDir}/（清单、编码、冷读都要引用）。` : '',
+  brdUrl ? `需求池登记了原始 BRD ${brdUrl}：可用 \`fetch-prd.mjs ${id}-brd <链接>\` 拉取作补充输入（可能在另一个租户域名下，拉不到记 failed，不要停下）。` : '',
+].filter(Boolean).join(' ')
 
 // 3. worktree
 const worktree = node('worktree.mjs', [id, ...(branchArg ? ['--branch', branchArg] : [])])

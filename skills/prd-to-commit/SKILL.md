@@ -31,6 +31,7 @@ node $S/preflight.mjs <ID>      # 0 干净 | 10 远端有在途分支 | 20 已�
 
 ```bash
 node $S/fetch-prd.mjs <ID> <lark-url>          # → ~/.prd-cache/<ID>/r<rev>/{prd.md,prd.xml,media/,sheets/,attachments/,meta.json}
+node $S/find-prd.mjs <ID>                      # 只有需求 ID 时：从需求池查 PRD（与原始 BRD）链接、状态、上线时间、是否免测
 ```
 
 - 完整读 `prd.md`。图片（`media/`、Figma 预览）超过 5 张时先派 1 个子 agent 逐张转写（否则自己看）到 `~/.prd-cache/<ID>/media-notes.md`：每张写对应 PRD 位置、页面/状态、**全部可见文字逐字**、红框/标注、与正文的冲突。notes 开头先列每图一行摘要。主会话读 notes 建清单；**编码某页面 UI 前必须看对应原图**核对位置、锚点与布局。之后只在疑点处回查本地文件，不重拉。
