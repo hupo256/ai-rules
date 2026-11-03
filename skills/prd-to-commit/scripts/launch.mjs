@@ -39,7 +39,8 @@ if (!url) {
   const info = JSON.parse(found.stdout)
   url = info.prd
   brdUrl = info.brd
-  console.log(`PRD（需求池）: ${url}  ${info.prdTitle ?? ''}`)
+  console.log(`PRD（${info.source === 'search' ? '需求池没填，文档搜索兜底——请核对' : '需求池'}）: ${url}  ${info.prdTitle ?? ''}`)
+  for (const c of (info.candidates ?? []).slice(1, 5)) console.log(`  其他候选: ${c.url}  ${c.title}`)
   if (brdUrl) console.log(`BRD（需求池反馈描述）: ${brdUrl}  ${info.brdTitle ?? ''}`)
   console.log(`状态: ${info.status}；上线 ${info.launch ?? '-'}${info.note ? `；备注: ${info.note}` : ''}\n`)
 }
