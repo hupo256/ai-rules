@@ -31,7 +31,7 @@ L1 craft lives here plus `~/.ai-rules/skills/*`; L2 repository rules live in eac
 - Non-trivial frontend work — data UI, reuse/shared props, API/schema/mapper, state derivation, forms, timers/animation, styling/visual QA, i18n: read `~/.ai-rules/skills/coding-quality/SKILL.md`, then only the routed topic reference.
 - Figma MCP extraction or visual reconstruction from Figma: read `~/.ai-rules/skills/figma-read/SKILL.md` before coding.
 - Set-operation changes (units in/out of a layout or container, deleting a control group / retiring an experiment, batch replace/migration, multi-site rename, "all/every/each of N" where a miss must fail at compile time): read `~/.ai-rules/skills/change-scoping/SKILL.md` before coding.
-- Before coding or committing in `~/github/fameex-web` or its worktrees: read `~/.ai-rules/rules/fameex-local.md` (git flow, repo rules, module layout, docs_tdd status).
+- Before coding or committing in `~/github/fameex-web` or its worktrees: read `~/.ai-rules/rules/fameex-local.md` (git flow, repo rules, module layout, personal FameEX facts).
 
 ## Conversation Defaults
 

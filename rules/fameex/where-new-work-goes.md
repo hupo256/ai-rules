@@ -17,6 +17,7 @@
 
 - `packageManager` 是 pnpm 12.14.0（原生二进制）；corepack 0.34/0.36 起不来时 `corepack disable pnpm && npm i -g pnpm@12.14.0`，再 `pnpm install`。（仓库 AGENTS.md 仍写 `corepack enable`。）
 - 格式化/lint 实际是 Biome（lint-staged 跑 `biome check --write`）；仓库 CLAUDE.md 还写 ESLint/Prettier、测试在 `__tests__/`——以 AGENTS.md 的「co-locate `*.test.ts(x)`」为准。
+- 仓库 `AGENTS.md:30` 让 Agent 把规划文档放进 `docs-tdd/`、`definition-of-done.mdc` 提到 docs_tdd gate：docs_tdd 已退役，忽略；过程文件只写 `~/.prd-cache/<ID>/`。
 - 仓库 CLAUDE.md 末尾「Always use Context7 MCP」：本机没装 Context7，忽略即可，不要为此停下。
 - 找图标先把 `packages/icon/output/icon.json` 的全部名字（约 314 个）列出来按形状挑，不要只按语义词搜（时钟类是 `history`、`hourglass`，没有叫 clock 的）。
 - 根 `vitest.workspace.ts` 把 `@` 指向 `apps/web/src`；自带 `vitest.config` 的 app（admin、futures-admin、security-admin、web-next）在各自目录用其配置跑。

@@ -226,5 +226,5 @@ done
 
 ### 其他
 
-- `~/github/docs_tdd` 已冻结为只读归档。新需求不走它的流程。
+- docs_tdd 已退役：GitHub 归档 `hupo256/docs-tdd-system`，本地克隆 2026-11-05 删除；回放 PRD 快照备份在 `~/Backups/prd-cache-REPLAY-snapshots-2026-11-05.tgz`。
 - 不要把工作文件放在 `/tmp`，重启会被清空。过程文件统一放 `~/.prd-cache/`。

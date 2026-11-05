@@ -291,7 +291,10 @@ if (cmd === 'check') {
   process.exit(ok ? 0 : 2)
 }
 
-if (cmd === 'run') {
+// open：给人用的「mock 浏览器」——用同一个 spec 的 mocks / 登录态 / 写保护打开一个有界面的窗口连本地 dev server，不跑步骤、不出报告，
+// 关掉窗口才退出。替代往业务仓里加 MSW：mock 只活在 ~/.prd-cache/<ID>/browser-specs/ 里，test/pre/online 永远看不到。
+// spec 可导出 `open = async ({ page, goto, context }) => {...}` 做免登录、导航到起始页；没有就 goto(--path 或 spec.startPath 或 basePath)。
+if (cmd === 'run' || cmd === 'open') {
   const specPath = resolve(args[1])
   const id = opt('--id', 'adhoc')
   const spec = await import(pathToFileURL(specPath).href)
@@ -301,7 +304,7 @@ if (cmd === 'run') {
   const outDir = join(homedir(), '.prd-cache', id, 'browser', `${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}-${specName}`)
   mkdirSync(outDir, { recursive: true })
   const copy = spec.auth === false ? join(tmpdir(), `p2c-anon-${process.pid}`) : profileCopy(conf)
-  const context = await chromium.launchPersistentContext(copy, { ...launchOptions(), headless: !args.includes('--headed'), viewport: spec.viewport ?? { width: 1440, height: 900 } })
+  const context = await chromium.launchPersistentContext(copy, { ...launchOptions(), headless: cmd === 'run' && !args.includes('--headed'), viewport: spec.viewport ?? { width: 1440, height: 900 } })
   if (spec.auth !== false) {
     await restoreCookies(context, conf)
     await injectSharedAuth(context, conf)
@@ -361,10 +364,11 @@ if (cmd === 'run') {
     report.realWrites.push(`${method} ${req.url()}`)
     return route.fallback()
   })
-  // 2) mock：spec.mocks = [{ url: /regex/ 或 'glob', method?: 'POST', json?: {...}, status?: 200 }]
+  // 2) mock：spec.mocks = [{ url: /regex/ 或 'glob', method?: 'POST', json?: {...}, status?: 200, delayMs?: 3000 }]（delayMs 模拟数据晚到）
   for (const m of spec.mocks ?? []) {
-    await context.route(m.url, (route) => {
+    await context.route(m.url, async (route) => {
       if (m.method && route.request().method() !== m.method) return route.fallback()
+      if (m.delayMs) await new Promise((done) => setTimeout(done, m.delayMs))
       report.mocked.push(`${route.request().method()} ${route.request().url()}`)
       return route.fulfill({ status: m.status ?? 200, contentType: 'application/json', body: JSON.stringify(m.json ?? { code: '0', msg: '', data: null }) })
     })
@@ -405,6 +409,19 @@ if (cmd === 'run') {
     },
   }
 
+  if (cmd === 'open') {
+    try {
+      if (typeof spec.open === 'function') await spec.open(helpers)
+      else await helpers.goto(opt('--path', spec.startPath ?? conf.basePath ?? '/'))
+      console.log(`opened ${conf.url}（mocks ${(spec.mocks ?? []).length} 条${spec.strictWrites ? '，strictWrites' : ''}）；关闭窗口结束。命中的 mock 会打印在这里。`)
+      page.on('requestfinished', (req) => { if (report.mocked.at(-1)?.endsWith(req.url())) console.log(`mock ← ${req.method()} ${req.url()}`) })
+      await new Promise((done) => context.on('close', done))
+    } finally {
+      rmSync(copy, { recursive: true, force: true })
+    }
+    process.exit(0)
+  }
+
   // step 外抛出的异常（spec 顶层代码、goto 超时等）也要落进报告，并清理 profile 副本
   try {
     if (spec.auth !== false && spec.authCheck !== false && !(await isLoggedIn(page, conf))) {
@@ -436,5 +453,5 @@ if (cmd === 'run') {
   process.exit(failed.length ? 1 : 0)
 }
 
-console.error('usage: browser.mjs login|check --site <site>  |  browser.mjs run <spec.mjs> --id <ID> [--headed]')
+console.error('usage: browser.mjs login|check --site <site>  |  browser.mjs run <spec.mjs> --id <ID> [--headed]  |  browser.mjs open <spec.mjs> [--path /zh-CN/xxx]')
 process.exit(1)

@@ -13,7 +13,7 @@
 
 数据公平性（本次实跑用于 skill 迭代数据，违反则数据作废）：
 - 远端可能已有同事的同名分支：**不得查看**任何非 {{BASE}} 祖先的提交或分支（不要 git log --all、git show 其他分支、git branch -a、git fetch 他人分支）。
-- 不得读取 /Users/aven/.ai-rules/labs、/Users/aven/github/docs_tdd、/Users/aven/github/fameex-web（主仓工作区）、其他 ~/github/PR-*、R*-* 目录，以及 ~/.prd-cache 下除 {{ID}} 以外的目录。
+- 不得读取 /Users/aven/.ai-rules/labs、/Users/aven/github/fameex-web（主仓工作区）、其他 ~/github/PR-*、R*-* 目录，以及 ~/.prd-cache 下除 {{ID}} 以外的目录。
 - 不得把 dev 环境真实返回的码值/字段当契约（浏览器连 dev 只为跑页面，看到的真实码值只能记待联调）。冷读、浏览器子代理的提示里也要带上这些约束（填进 <额外约束>）。
 
 run-log 要求：每条时间用 `date` 取真实时间；记录每个阶段起止、每个子 agent 的用途/返回摘要/tool 次数与 token（任务通知里的 usage）、返工原因、偏离 skill 的地方与原因、工具问题。

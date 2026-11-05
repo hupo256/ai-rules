@@ -6,13 +6,12 @@
 
 ```bash
 node $S/dev.mjs start ~/github/<ID> --site web          # web 4710 | web-next 4001 | admin 4711 | legacy-admin 8109 | futures-legacy-admin 8110
-# 需求带 MSW mock 时：先在 app 目录跑一次 `pnpm msw:init`，再以 NEXT_PUBLIC_ENABLE_MSW=true node $S/dev.mjs start ... 启动（进程环境变量优先于 .env 文件）
 node $S/dev.mjs status ~/github/<ID> --site web
 node $S/dev.mjs stop ~/github/<ID> --site web           # 交付后停掉
 node $S/dev.mjs prewarm ~/github/<ID> --site legacy-admin   # 只装 legacy 依赖、不启动；多站点需求建完 worktree 就对每个 legacy 站点跑一次（PR-02012 浏览器 R1 约 2h，首装占大头）
 ```
 
-- 端口固定，因为登录态按 origin 保存。同一站点同时只跑一个 dev server。端口被别的 worktree 占着时，只有对方 worktree 已不存在或启动超过 2 小时才自动接管；否则返回 4（`busy`），确认对方会话已结束再加 `--steal`。`stop` 只停本 worktree 起的服务。已在跑的服务 MSW 开关与本次不同时会自动重启。
+- 端口固定，因为登录态按 origin 保存。同一站点同时只跑一个 dev server。端口被别的 worktree 占着时，只有对方 worktree 已不存在或启动超过 2 小时才自动接管；否则返回 4（`busy`），确认对方会话已结束再加 `--steal`。`stop` 只停本 worktree 起的服务。
 - **所有站点统一连 dev 环境（pfyys）**：开发期接口先发 dev，在 dev 联调完才上 test，dev 上的数据也更好操作。Next 站点用仓库的 `.env.dev`（等同 `pnpm dev`）；legacy 工程的仓库代理本来就指向 pfyys，以 `--mode dev` 启动。`scripts/legacy-vue.config.cjs` 只用来关掉自动打开浏览器；确需临时连别的环境时，在启动命令前加 `P2C_PROXY_FROM=pfyys.com P2C_PROXY_TO=<目标域名>`，不改仓库文件。legacy 第一次启动时会自动 `npm install`。
 - 多个站点可以同时运行（端口各不相同），按需启动即可。
 - **全机限流**：`dev.mjs start` 会检查整台机器上由它启动且仍在监听的 dev server，达到上限（环境变量 `P2C_MAX_DEV` > `~/.config/prd-to-commit/dev/max-dev` > 默认 4，排队中每次重试都重读）就每 30 秒重试、最多等 `P2C_DEV_WAIT_MIN`（默认 40）分钟，超时返回 5。16G 内存的机器上 3 个以上 Next dev 同时冷启动会卡死（2026-10-18 三次强制重启）；不要绕过它手动起 `next dev`。
@@ -52,8 +51,10 @@ export const site = 'web'                 // 必填：对应 browser-sites.json
 export const mocks = [                    // 接口没就绪、或要构造特定数据态时用（不改业务代码、不加 MSW）
   { url: /\/fe-ex-api\/finance\/launchpool\/projects/, json: { code: '0', msg: '', data: { list: [/* 按清单契约构造 */] } } },
   { url: /\/manualInvalid\/submit/, method: 'POST', json: { code: '0', msg: '操作成功', data: null } },
+  // { url: /\/banner\/list/, json: {...}, delayMs: 3000 },   // 模拟数据晚到（布局撑高、竞态）
 ]
 // export const strictWrites = true        // dev 上也拦截未 mock 的写操作（默认放行）
+// export const startPath = '/zh-CN/earning/launchpool'   // browser.mjs open 的起始页（或导出 open = async ({ page, goto }) => {...} 做免登录再导航）
 
 export default async ({ goto, step, expectText, page, shot }) => {
   await step('列表页展示', async () => {
@@ -72,6 +73,7 @@ export default async ({ goto, step, expectText, page, shot }) => {
 node $S/browser.mjs run ~/.prd-cache/<ID>/browser-specs/<名字>.mjs --id <ID> [--worktree ~/github/<ID>] [--headed]
 ```
 
+- **给人看的 mock 浏览器**：`node $S/browser.mjs open <spec.mjs> [--path /zh-CN/xxx]`——用同一个 spec 的 mocks、登录态/免登录、写保护打开**有界面**的窗口连本地 dev server，不跑步骤、不出报告，改代码热更新照常，关窗口才退出。替代往业务仓加 MSW；要换数据态就改 spec 的 mocks 再开一次。
 - 输出在 `~/.prd-cache/<ID>/browser/<时间>/`，包含每步截图、`report.md`、`report.json`（页面报错、console error、失败请求、mock 命中、拦截的写请求）。
 - 运行器会自动去掉开发态叠层（react-scan、Next 开发角标）。
 - **写操作**：dev 环境（pfyys）上默认**真实写入**，报告的 `realWrites` 会列出每一条，交付说明里要写明改了哪些 dev 数据。发往其他域名的非 GET 请求默认拦截（只放行读形路径，如 get*/query*/*list/*info），返回成功占位并记入 `blockedWrites`；legacy 后台经本地 devServer 代理的接口（如 `/old-api` → f4mes）按 `browser-sites.json` 的 `proxy` 映射回目标域名再判断，仓库代理改了要同步。spec 的 mocks 先于写保护命中，被 mock 的写不算真实写入。不想动 dev 数据，或接口还没上 dev 时，给该接口写 mock，或在 spec 里设 `strictWrites = true`。登出接口始终拦截。POST 查询照常透传。

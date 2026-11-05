@@ -1,6 +1,6 @@
 ---
 name: prd-to-commit
-description: 只给 PRD（Lark 链接或正文）+ 项目号时，从拉 PRD 到本地 commit 的极简流程：预检 → 落盘一次 → 需求清单（原句→落点）→ plan 依赖分批 → 用户确认一次 → worktree → 编码 → 改动文件检查 → 冷读与浏览器验证（子 agent 并行）→ 修复 → commit。用于 FameEX Web 新需求；存量 docs_tdd v1/v2 项目不用。
+description: 只给 PRD（Lark 链接或正文）+ 项目号时，从拉 PRD 到本地 commit 的极简流程：预检 → 落盘一次 → 需求清单（原句→落点）→ plan 依赖分批 → 用户确认一次 → worktree → 编码 → 改动文件检查 → 冷读与浏览器验证（子 agent 并行）→ 修复 → commit。用于 FameEX Web 新需求。
 ---
 
 # PRD → Commit
@@ -15,7 +15,7 @@ description: 只给 PRD（Lark 链接或正文）+ 项目号时，从拉 PRD 到
 | §3.5 写 plan 前（§1 转写、§2 Explore 子 agent 不用等它） | `references/delegation.md`（分批、编码/浏览器子 agent 的提示内容、run-log） |
 | §4 起 dev server / 浏览器验证 | `references/browser.md` |
 | §7 冷读 | `references/coldread-prompt.md`（提示词全文） |
-| 碰到 FameEX 具体坑 | `references/fameex.md`（流程特有的判断：复核补缺、MSW、契约输入、测试）；项目事实在 `~/.ai-rules/rules/fameex/`（个人本地，由 `rules/fameex-local.md` 路由） |
+| 碰到 FameEX 具体坑 | `references/fameex.md`（流程特有的判断：复核补缺、契约输入、测试）；项目事实在 `~/.ai-rules/rules/fameex/`（个人本地，由 `rules/fameex-local.md` 路由） |
 | 换宿主（Codex / Cursor）或沙箱限制 | `references/hosts.md`（派发、端口、提交、权限的宿主差异） |
 
 ## 0. 预检（拉 PRD 前）
@@ -79,7 +79,7 @@ node $S/worktree.mjs <ID> [--fix]              # → ~/github/<ID>，feature/<ID
 - 遵守全局规则和仓库 `AGENTS.md`/`CLAUDE.md`、按主题命中的 `.cursor/rules/*.mdc`、`coding-quality` skill。
 - 按清单逐行实现，实现完一行就填上真实落点。
 - 文案按 PRD 逐字写入，语言文件范围按仓库规则。含 `&`、`/`、`<` 的文案能直接写就不走插值（会被转义成 `&amp;`）。
-- 接口未就绪时按已知契约写好代码，清单标「待联调」，并**自行决定**加最小 MSW mock 把 UI/UX 写全：只为本需求新增/变更的接口写 handler 和 fixture（`src/mocks/<功能>/`，仅 `NEXT_PUBLIC_ENABLE_MSW=true` 生效，业务代码无 mock 分支）。未接入的 app 按 `references/fameex.md` 单独提交补齐（legacy 不接）；**base 无基建且不能引入非 base 祖先提交时不加 MSW**，交付记 `not-required`。接口上 dev 就删 handler，基建保留。边缘数据态写在浏览器 spec 的 mocks 里。
+- 接口未就绪时按已知契约写好代码，清单标「待联调」。**不往业务仓提交任何 mock 代码与依赖（不加 MSW）**：各数据态写在 `~/.prd-cache/<ID>/browser-specs/` 的 spec `mocks` 里，Agent 用 `browser.mjs run` 验证，人要交互着看效果用 `browser.mjs open <spec>`（同一份 mocks 的有界面窗口，连本地 dev server）。mock 只活在本地，test/pre/online 永远看不到。
 - PRD 要求埋点时，事件参数（步骤序号、来源页等）由纯函数算出并单测断言取值（浏览器验不到埋点）。
 - 写操作（绑定/解绑/提交/删除/状态上报）成功后，要让依赖该数据的服务端状态刷新（React Query `invalidateQueries` 用户资料、列表等），不能只关弹窗、弹提示。
 
@@ -119,6 +119,6 @@ cd ~/github/<ID> && git --literal-pathspecs add -- <本次改动的具体文件.
 
 ## 10. 交付说明（给用户，≤15 行）
 
-包括：提交 SHA；目标工程与依据（§2 判定过的）；码值/路径占位导致功能在联调前整体不可见的，**首行写「联调前不可用」**；**上线前必须替换的占位**（码值、接口路径、配置 ID，逐个列文件:行，注明现在是否会被用户选到）；**本次改动页面上发现的存量可见缺陷**（尤其金额/比例/状态显示错误）单列一节写在占位之后，不归入「范围外」一句带过（PR-02127 实跑与回放两次把「分润比例重复乘 100」降级）；清单完成情况（✅ / 待联调 / 待确认）；MSW handler 与对应接口；冷读与浏览器发现及处理；哪些检查没跑（`not-required` 或原因）。
+包括：提交 SHA；目标工程与依据（§2 判定过的）；码值/路径占位导致功能在联调前整体不可见的，**首行写「联调前不可用」**；**上线前必须替换的占位**（码值、接口路径、配置 ID，逐个列文件:行，注明现在是否会被用户选到）；**本次改动页面上发现的存量可见缺陷**（尤其金额/比例/状态显示错误）单列一节写在占位之后，不归入「范围外」一句带过（PR-02127 实跑与回放两次把「分润比例重复乘 100」降级）；清单完成情况（✅ / 待联调 / 待确认）；数据态 mock 所在的 spec 路径（供人用 `browser.mjs open` 复看）；冷读与浏览器发现及处理；哪些检查没跑（`not-required` 或原因）。
 
 交付前运行 `node $S/stats.mjs <ID>`（追加到 run-log），交付说明末尾附一行 token 与墙钟合计。

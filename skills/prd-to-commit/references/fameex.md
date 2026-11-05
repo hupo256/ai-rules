@@ -23,16 +23,11 @@
 ## i18n
 - 事实见 `rules/fameex/i18n-locale-rules.md`（只改 zh-CN、两套命名空间机制、插值转义、legacy 空白、errorCode.json）。清单里其他语种不同步时注明依据；并行子 agent 的新 key 写草稿由主会话合并（delegation.md）。
 
-## MSW（接口未就绪时写全 UI/UX）
-- 何时用、用多少见 SKILL §5：接口没上 dev 时自行决定，只 mock 本需求的新接口，fixture 最小化。
-- **基建常驻（apps/web）**：`src/mocks/` 下的 `browser.ts`、`useMockWorker.ts`、`handlers.ts`（登记表）和 `README.md`，加上 `Providers.tsx` 的 `useMockWorker`、proxy 与 SW 注册对 worker 的放行、`msw` 依赖与 `msw:init`、`turbo.json` 的 `NEXT_PUBLIC_ENABLE_MSW`。现在 online 上还没有这套基建：已验证的实现放在本地分支 `feature/msw-infra`（d4e3f12b86，未 push）。**第一个需要 MSW 的真实需求**先 `git cherry-pick d4e3f12b86` 作为单独一个提交带上（不要手抄），基建随该需求合入 online，之后常驻。cherry-pick 前先查 `src/mocks/browser.ts` 是否已存在，已存在说明基建已经进来了，跳过这一步。用法以仓库里的 `src/mocks/README.md` 为准。
-- 每个需求只新增 `src/mocks/<功能>/{handlers,fixtures}.ts`，并在 `src/mocks/handlers.ts` 登记一行。接口就绪后**只删这两处**，基建一律保留（以前连基建一起清掉，下个需求又得重接）。
-- worktree 里先跑一次 `pnpm --filter @fameex/web msw:init` 生成 worker 文件（已 gitignore）。
-- 基建已处理的三个坑（PR-02463 踩过），改动这些文件时别破坏：worker 要在 proxy 的 `LOCALE_BYPASS_PATTERNS` 里放行，否则被语言重定向拦掉；`useServiceWorkerRegistration` 不能把 mockServiceWorker 当 PWA 的 SW 注销；开关只认 `NODE_ENV==='development' && NEXT_PUBLIC_ENABLE_MSW==='true'`，并已登记在 `turbo.json` 的 globalEnv。
-- 需要给 apps/admin（Next 后台）用 MSW 时，照 apps/web 的基建另起一个单独提交接入。
-- 浏览器验证（登录态、mock、写保护、截图）统一走 `references/browser.md` 的 `dev.mjs` + `browser.mjs`，不再手写假 token。
-- **base 上没有基建、又不能引入非 base 祖先提交**（回放、公平性约束、用户要求只带本需求改动）时：不加 MSW，数据态全部写在浏览器 spec 的 mocks 里，交付说明记 `MSW: not-required（base 无基建）`（PR-01549/02634/02012 三次）。
-- 权限 key 未知时用 `null`（不拦截）而不是非法占位：非法占位会让所有用户都没有权限、线上锁死（PR-02254）。
+## 数据态与 mock（不用 MSW）
+- 2026-11-05 起**不往 fameex-web 提交 MSW 基建或 handler**：mock 只写在 `~/.prd-cache/<ID>/browser-specs/*.mjs` 的 `mocks` 里；人要交互着看用 `browser.mjs open <spec>`（见 browser.md §3）。test/pre/online 不出现任何 mock 代码，也不需要和团队协调依赖。
+- 仓里若已有别人加的 MSW 基建，照常可用，但本流程不新增 handler、不扩展基建。本地分支 `feature/msw-infra`（`d4e3f12b86`）只作参考保留，不 cherry-pick。
+- SSR 预取的数据 spec mocks 拦不到（MSW 浏览器版同样拦不到）：这类数据态只能用 dev 真实数据，构造不了的记 not-covered。
+- 权限 key 未知时用 `null`（不拦截）而不是非法占位（PR-02254；见 checklist-rules 非法占位的例外）。
 
 ## 测试
 - 根 `vitest.workspace.ts` 把 `@` 指向 apps/web/src。check.mjs 对自带 `vitest.config` 的 app（admin、futures-admin、security-admin、web-next）在 app 目录用其配置跑，其余非 web app 用临时配置改 `@`；自己手动跑时同理（PR-01930 v4、PR-01507）。测试失败时 check.mjs 会在 base 临时 worktree 复跑，base 上同样失败的标 pre-existing（PR-02463、PR-01507 各遇到 2 例存量失败）。

@@ -13,6 +13,15 @@ skill 本体在 `~/.ai-rules/skills/prd-to-commit/`（独立 git 仓库），版
 
 （无）
 
+## v1.11 — 2026-11-05
+
+依据 [reports/2026-11-05-docs-tdd-cleanup-and-msw-local-only.md](./../reports/2026-11-05-docs-tdd-cleanup-and-msw-local-only.md)。
+- **MSW 不进业务仓**：SKILL §5/§10、fameex.md「数据态与 mock」、browser.md、checklist-rules——不往 fameex-web 提交任何 mock 代码与依赖，数据态只写在 `~/.prd-cache/<ID>/browser-specs/` 的 mocks；`feature/msw-infra` 只作参考，不 cherry-pick。
+- **工具**：`browser.mjs open <spec> [--path]`（同一份 mocks/免登录的有界面窗口，给人本地看效果，替代 MSW）；spec mocks 支持 `delayMs`（模拟数据晚到）。
+- **docs_tdd 退役**：3 个本地提交已推 GitHub、本地克隆删除；活跃规则里的引用改掉，放置标准提炼为 `rules/rule-placement.md`；回放 PRD 快照备份 `~/Backups/prd-cache-REPLAY-snapshots-2026-11-05.tgz`。fameex-web 不改。
+- **delegation.md**：浏览器子 agent 续跑「等待中」时以 `browser-roundN.md` 落盘为准（R25 主会话两次提前停下）。
+- **回放**：R25-02022 12/12 陷阱 0（无 MSW、无 mock 代码进 diff）。
+
 ## v1.10 — 2026-11-03
 
 依据真实需求 PR-02506 与同事对照（[real-runs/PR-02506.md](./real-runs/PR-02506.md)）。
