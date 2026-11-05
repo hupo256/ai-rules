@@ -13,6 +13,8 @@
 
 ## 下一步
 
+- 2026-11-05：7 个 `feature/<ID>-p2c` 实跑分支已删除（只在本地、对照已完成），SHA 见 `~/.prd-cache/_deleted-p2c-branches-2026-11-05.txt`，reflog 约 90 天内可 `git branch <名> <SHA>` 找回。
+
 观察期总结：[reports/2026-11-04-observation-report.md](./reports/2026-11-04-observation-report.md)（9 个实跑，11-04 重拉 bug：仅 PR-02012 +1 条不适用；PR-02374 已在远端、bug 0）。
 
 0. PR-01723 / PR-02374 由用户 push/建 MR 提测；QA 后 `node $S/bugs.mjs <ID>` 拉 bug，归类进 real-runs（S8）。新实跑用 `node $S/launch.mjs <ID> [<url>] --mode direct --offset <n>` 一条命令准备（不给 url 就从需求池自动查 PRD），再派 Opus agent 读生成的 prompt。提测后用 `node $S/bugs.mjs <ID>` 拉 QA bug。
